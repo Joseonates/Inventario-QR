@@ -3,214 +3,269 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#000">
-<title>Inventario QR 1.2.9</title>
+<meta name="theme-color" content="#0f172a">
+<title>Inventario QR — Fase 1.3</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1220;color:#fff}
-header{padding:14px 16px;background:#111827}h1{margin:0;font-size:20px}header p{margin:5px 0;font-size:13px;color:#cbd5e1}
-.camera{position:relative;background:#000;overflow:hidden}.camera video{display:block;width:100%;height:auto;min-height:58vh;object-fit:cover;background:#000}
-.overlay{position:absolute;inset:0;pointer-events:none}.target{position:absolute;left:8%;top:34%;width:84%;height:32%;border:3px solid #fff;border-radius:14px;box-shadow:0 0 0 9999px #0002;transition:all .12s ease;display:none}
-.target.barcode{border-radius:6px}.target.qr{border-radius:16px}.target:after{content:"";position:absolute;left:5%;right:5%;top:50%;border-top:2px solid #fff}
-.scanmsg{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:13px;text-shadow:0 1px 5px #000}
-.panel{padding:12px 14px;background:#111827}.status{padding:10px;border-radius:10px;background:#1f2937;font-size:13px}.ok{background:#064e3b}.err{background:#7f1d1d}
-.mode{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.mode button{padding:14px;border:2px solid #475569;border-radius:12px;background:#1e293b;color:#fff;font-size:15px;font-weight:bold}.mode button.active{background:#fff;color:#111827;border-color:#fff}
-.buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}button{padding:12px;border:0;border-radius:10px;font-weight:bold;font-size:14px}.primary{background:#fff;color:#111827}.secondary{background:#334155;color:#fff}
-.controls{margin-top:10px}.controls label{display:block;font-size:12px;color:#cbd5e1;margin:7px 0 3px}input[type=range]{width:100%}
-.card{padding:14px;background:#fff;color:#111827}.row{display:flex;gap:8px}.row button{flex:1}
-table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
-#result{margin-top:10px;padding:10px;border-radius:10px;background:#f1f5f9;color:#111827;display:none}
-.stepbox{padding:10px;border-radius:10px;background:#e2e8f0;margin-bottom:10px}.small{font-size:12px;color:#64748b}
+:root{--bg:#f1f5f9;--card:#fff;--text:#0f172a;--muted:#64748b;--primary:#2563eb;--ok:#16a34a;--danger:#dc2626;--border:#e2e8f0}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+header{background:#0f172a;color:#fff;padding:16px 18px;position:sticky;top:0;z-index:10}
+header h1{margin:0;font-size:21px}header small{opacity:.8}
+main{max-width:1100px;margin:auto;padding:14px}.grid{display:grid;grid-template-columns:410px 1fr;gap:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:15px;box-shadow:0 4px 16px #00000008}
+h2{font-size:17px;margin:0 0 12px}.row{display:flex;gap:8px;flex-wrap:wrap}
+button,input{font:inherit}button{border:0;border-radius:10px;padding:11px 13px;cursor:pointer;font-weight:700}
+button:disabled{opacity:.5;cursor:not-allowed}.primary{background:var(--primary);color:#fff}.secondary{background:#e2e8f0;color:var(--text)}
+.ok{background:#dcfce7;color:#166534}.danger{background:#fee2e2;color:#991b1b}
+.mode{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.mode button{border:2px solid #cbd5e1;background:#fff;color:#334155}
+.mode button.active{border-color:var(--primary);background:#eff6ff;color:#1d4ed8}
+.scanner{position:relative;background:#050b16;border-radius:14px;overflow:hidden;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+video{width:100%;height:100%;object-fit:cover;display:none}
+.overlay{position:absolute;inset:0;pointer-events:none;display:none}
+.target{position:absolute;border:3px solid #fff;border-radius:14px;box-shadow:0 0 0 999px #0005;left:50%;top:50%;transform:translate(-50%,-50%);width:68%;height:42%}
+.overlay.qr .target{width:min(62%,260px);height:min(62%,260px);border-radius:10px}
+.status{margin-top:9px;padding:10px;border-radius:10px;background:#f8fafc;font-size:13px}
+.step{font-size:18px;font-weight:800;margin:10px 0}.value{font-size:15px;word-break:break-all}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.stat{background:#f8fafc;border-radius:10px;padding:10px;text-align:center}.stat b{display:block;font-size:20px}
+.hint{font-size:12px;color:var(--muted);line-height:1.45}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700}
+.tablewrap{overflow:auto;max-height:520px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--border);vertical-align:top}th{color:var(--muted);font-size:11px}
+input{width:100%;padding:11px;border:1px solid var(--border);border-radius:9px;background:#fff}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;display:none;z-index:30;max-width:92%}
+@media(max-width:850px){.grid{grid-template-columns:1fr}main{padding:9px}}
 </style>
 </head>
 <body>
-<header><h1>📷 Inventario QR — Lector QR profesional</h1><p>Fase 1.2.9 · cámara directa + ZXing QR + barras</p></header>
-
-<div class="camera">
- <video id="video" autoplay playsinline muted></video>
- <div class="overlay"><div id="target" class="target"></div><div id="scanmsg" class="scanmsg">Selecciona el tipo de código</div></div>
+<header><h1>📦 Inventario QR</h1><small>Fase 1.3 — cámara directa + lectura QR/barras + Serial → MAC</small></header>
+<main>
+<div class="stats">
+  <div class="stats">
+    <div class="stat"><b id="total">0</b><span>EQUIPOS</span></div>
+    <div class="stat"><b id="complete">0</b><span>COMPLETOS</span></div>
+    <div class="stat"><b id="pending">0</b><span>PENDIENTES</span></div>
+  </div>
 </div>
 
-<div class="panel">
- <b>Tipo de código que quieres leer</b>
- <div class="mode">
-  <button id="qrMode" class="active">▣ QR</button>
-  <button id="barMode">▥ CÓDIGO DE BARRAS</button>
- </div>
+<div class="grid">
+<section class="card">
+<h2>📷 Escáner</h2>
 
- <div class="stepbox">
-  <b id="stepTitle">1. PRIMERA LECTURA → SERIAL</b>
-  <span id="stepText" class="small">El primer código detectado siempre será SERIAL.</span>
- </div>
-
- <div id="status" class="status">Pulsa “Encender cámara”.</div>
- <div id="result"></div>
-
- <div class="buttons">
-  <button id="start" class="primary">▶ ENCENDER CÁMARA</button>
-  <button id="stop" class="secondary">⏹ APAGAR</button>
-  <button id="torch" class="secondary" disabled>🔦 Linterna</button>
-  <button id="flip" class="secondary">🔄 Cambiar cámara</button>
- </div>
- <div class="controls">
-  <label>🔍 Zoom</label><input id="zoom" type="range" min="1" max="1" step="0.1" value="1" disabled>
- </div>
+<div class="mode">
+<button id="qrMode" class="active">▣ QR</button>
+<button id="barMode">▥ CÓDIGO DE BARRAS</button>
 </div>
 
-<div class="card">
- <b>Inventario</b>
- <div class="row"><button id="manual" class="secondary">Entrada manual</button><button id="clear" class="secondary">Borrar</button></div>
- <div style="margin-top:10px;overflow:auto"><table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th></tr></thead><tbody id="tbody"></tbody></table></div>
+<div class="scanner">
+  <video id="video" playsinline autoplay muted></video>
+  <div id="overlay" class="overlay"><div id="target" class="target"></div></div>
+  <div id="cameraMsg" style="color:#cbd5e1;text-align:center;padding:20px">
+    <b>La cámara está detenida</b><br><br>Pulsa “Iniciar cámara”.
+  </div>
 </div>
 
-<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
+<div class="row" style="margin-top:10px">
+<button class="primary" id="start">▶ Iniciar cámara</button>
+<button class="secondary" id="stop" disabled>■ Detener</button>
+<button class="secondary" id="flip">↔ Cambiar cámara</button>
+</div>
+
+<div class="status">
+  <b>Modo:</b> <span id="modeLabel">QR</span><br>
+  <b>Estado:</b> <span id="scanStatus">Esperando cámara</span>
+</div>
+
+<div class="step" id="step">1 · ESPERANDO SERIAL</div>
+<div class="value"><b>SERIAL:</b> <span id="serial">—</span></div>
+<div class="value" style="margin-top:5px"><b>MAC:</b> <span id="mac">—</span></div>
+
+<div class="row" style="margin-top:12px">
+<button class="ok" id="save">💾 Guardar equipo</button>
+<button class="secondary" id="clear">Limpiar</button>
+</div>
+
+<label style="display:block;margin-top:13px;font-size:12px;color:#64748b;font-weight:700">Entrada manual / prueba</label>
+<div class="row"><input id="manual" placeholder="Escribe un valor y agrégalo"><button class="primary" id="manualBtn">Agregar</button></div>
+
+<p class="hint">
+La cámara se abre directamente con <code>getUserMedia()</code>, sin que el lector controle el zoom, enfoque ni recorte.
+La lectura depende del modo seleccionado. El primer código capturado siempre es SERIAL y el segundo siempre MAC.
+</p>
+</section>
+
+<section class="card">
+<h2>📋 Inventario</h2>
+<div class="row" style="margin-bottom:10px">
+<button class="primary" id="csv">⬇ CSV</button>
+<button class="secondary" id="excel">⬇ Excel</button>
+<button class="danger" id="erase">🗑 Borrar todo</button>
+</div>
+<input id="search" placeholder="Buscar por serial o MAC...">
+<div class="tablewrap" style="margin-top:10px">
+<table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th><th>ESTADO</th><th>ACCIÓN</th></tr></thead>
+<tbody id="tbody"></tbody></table>
+</div>
+<p class="hint">Los registros se guardan localmente en este navegador.</p>
+</section>
+</div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
 <script>
-let stream=null,track=null,facing="environment",serial=null,locked=false,loop=false;
-let mode="qr", barcodeDetector=null, qrReader=null, qrControls=null, barTimer=null;
-let items=JSON.parse(localStorage.getItem("iqr129")||"[]");
-const $=id=>document.getElementById(id);
+const KEY='inventarioQR_F1_3_RECONSTRUIDA_v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'[]');
+let cur={serial:'',mac:''};
+let stream=null, track=null, running=false, cameraIndex=0;
+let video=document.getElementById('video');
+let detector=null, barcodeReader=null, raf=null, lastValue='', lastTime=0;
+let mode='qr';
 
-function status(t,c=""){ $("status").textContent=t;$("status").className="status "+c }
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-function render(){$("tbody").innerHTML=items.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.s)}</td><td>${esc(x.m)}</td></tr>`).join("")}
+const $=id=>document.getElementById(id);
+function toast(t){$('toast').textContent=t;$('toast').style.display='block';clearTimeout(window.__tt);window.__tt=setTimeout(()=>$('toast').style.display='none',2500)}
+function saveDB(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function normalize(v){return String(v??'').trim()}
+function updateCurrent(){
+ $('serial').textContent=cur.serial||'—';$('mac').textContent=cur.mac||'—';
+ $('step').textContent=cur.serial&&!cur.mac?'2 · ESPERANDO MAC':'1 · ESPERANDO SERIAL';
+}
+function capture(v){
+ v=normalize(v); if(!v)return;
+ const now=Date.now();
+ if(v===lastValue && now-lastTime<1400)return;
+ lastValue=v;lastTime=now;
+ if(!cur.serial){
+   cur.serial=v; updateCurrent(); toast('SERIAL capturado ✓');
+ }else if(!cur.mac){
+   cur.mac=v; updateCurrent(); toast('MAC capturada ✓');
+   // Do not stop camera: user can save, then continue with next equipment.
+ }else{
+   toast('Equipo completo. Guarda el equipo antes de continuar.');
+ }
+}
+function saveCurrent(){
+ if(!cur.serial&&!cur.mac){toast('Primero captura un código.');return}
+ if(!cur.serial||!cur.mac){toast('Falta capturar el segundo código (MAC).');return}
+ const dup=data.find(x=>x.serial===cur.serial||x.mac===cur.mac);
+ if(dup){toast('⚠️ Serial o MAC ya existe.');return}
+ data.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),serial:cur.serial,mac:cur.mac,date:new Date().toISOString()});
+ cur={serial:'',mac:''};updateCurrent();saveDB();toast('Equipo guardado ✓');
+}
+function clearCurrent(){cur={serial:'',mac:''};lastValue='';updateCurrent()}
+function render(){
+ const q=normalize($('search').value).toLowerCase();
+ const list=data.filter(x=>!q||x.serial.toLowerCase().includes(q)||x.mac.toLowerCase().includes(q));
+ $('tbody').innerHTML=list.length?list.map((x,i)=>`<tr><td>${data.indexOf(x)+1}</td><td>${escapeHtml(x.serial)}</td><td>${escapeHtml(x.mac)}</td><td><span class="badge">COMPLETO</span></td><td><button class="danger" style="padding:6px 8px" onclick="removeItem('${x.id}')">Eliminar</button></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;padding:25px;color:#64748b">No hay registros.</td></tr>';
+ $('total').textContent=data.length;$('complete').textContent=data.filter(x=>x.serial&&x.mac).length;$('pending').textContent=data.filter(x=>!(x.serial&&x.mac)).length;
+}
+function escapeHtml(v){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function removeItem(id){data=data.filter(x=>x.id!==id);saveDB();toast('Registro eliminado.')}
+window.removeItem=removeItem;
 
 function setMode(m){
- mode=m; $("qrMode").classList.toggle("active",m==="qr"); $("barMode").classList.toggle("active",m==="barcode"); resetBox();
- $("scanmsg").textContent=m==="qr"?"Modo QR: apunta al QR que quieres leer":"Modo barras: apunta al código de barras";
- if(stream){ stopReader(); initReader(); } else status(m==="qr"?"Modo QR seleccionado.":"Modo código de barras seleccionado.");
+ mode=m;$('qrMode').classList.toggle('active',m==='qr');$('barMode').classList.toggle('active',m==='bar');
+ $('modeLabel').textContent=m==='qr'?'QR':'CÓDIGO DE BARRAS';
+ $('overlay').classList.toggle('qr',m==='qr');
+ $('scanStatus').textContent=running?'Analizando '+(m==='qr'?'QR':'códigos de barras'):'Esperando cámara';
+ lastValue='';lastTime=0;
+ // Native BarcodeDetector is rebuilt when mode changes.
+ if(running) setupDetector();
+}
+$('qrMode').onclick=()=>setMode('qr');$('barMode').onclick=()=>setMode('bar');
+
+async function setupDetector(){
+ detector=null;
+ if('BarcodeDetector' in window){
+   try{
+     let formats=await BarcodeDetector.getSupportedFormats();
+     let wanted=mode==='qr'?['qr_code']:['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','itf','codabar'];
+     let usable=wanted.filter(x=>formats.includes(x));
+     if(usable.length) detector=new BarcodeDetector({formats:usable});
+   }catch(e){detector=null}
+ }
+ if(mode==='qr' && window.ZXingBrowser){
+   try{
+     if(barcodeReader) barcodeReader.reset();
+     barcodeReader=new ZXingBrowser.BrowserQRCodeReader();
+   }catch(e){barcodeReader=null}
+ }
 }
 
-async function stopReader(){
- loop=false;
- if(qrControls){try{qrControls.stop()}catch(e){} qrControls=null}
- if(barTimer){clearTimeout(barTimer);barTimer=null}
-}
-async function stopCamera(){
- await stopReader();
- if(stream)stream.getTracks().forEach(t=>t.stop());
- stream=null;track=null;$("video").srcObject=null;$("torch").disabled=true;$("zoom").disabled=true;resetBox();
-}
 async function startCamera(){
+ if(!navigator.mediaDevices?.getUserMedia){toast('Este navegador no permite usar la cámara.');return}
  try{
-  await stopCamera();
-  if(!window.isSecureContext){status("❌ Abre esta aplicación mediante HTTPS.","err");return}
-  if(!navigator.mediaDevices?.getUserMedia){status("❌ Este navegador no permite acceso a cámara.","err");return}
-  status("📷 Encendiendo cámara...");
-  stream=await navigator.mediaDevices.getUserMedia({
-   audio:false,
-   video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:60}}
-  });
-  $("video").srcObject=stream;await $("video").play();track=stream.getVideoTracks()[0];
-  const caps=track.getCapabilities?track.getCapabilities():{};
-  if(caps.zoom){let z=$("zoom");z.min=caps.zoom.min;z.max=caps.zoom.max;z.step=caps.zoom.step||0.1;z.value=caps.zoom.min;z.disabled=false}
-  if(caps.torch)$("torch").disabled=false;
-  try{await track.applyConstraints({advanced:[{focusMode:"continuous"}]})}catch(e){}
-  status("✅ Cámara activa · "+(mode==="qr"?"lector QR ZXing":"lector de barras"),"ok");
-  initReader();
+   if(stream)stopCamera(false);
+   const devices=await navigator.mediaDevices.enumerateDevices();
+   const cams=devices.filter(d=>d.kind==='videoinput');
+   let constraints={video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false};
+   if(cams.length && cameraIndex<cams.length) constraints.video={deviceId:{exact:cams[cameraIndex].deviceId},width:{ideal:1920},height:{ideal:1080}};
+   stream=await navigator.mediaDevices.getUserMedia(constraints);
+   track=stream.getVideoTracks()[0];
+   video.srcObject=stream;video.style.display='block';$('cameraMsg').style.display='none';
+   await video.play();
+   running=true;$('start').disabled=true;$('stop').disabled=false;$('overlay').style.display='block';
+   $('scanStatus').textContent='Analizando '+(mode==='qr'?'QR':'códigos de barras');
+   await setupDetector();
+   if(mode==='qr' && barcodeReader && !detector){
+     // ZXing scans the existing video element; camera remains owned by getUserMedia.
+     try{
+       barcodeReader.decodeFromVideoElement(video,(result,err)=>{
+         if(!running)return;
+         if(result){const txt=result.getText?.()||result.text||'';if(txt)capture(txt)}
+       });
+     }catch(e){}
+   }
+   loop();
  }catch(e){
-  console.error(e);await stopCamera();
-  if(e.name==="NotAllowedError")status("❌ Permiso de cámara rechazado. Permite la cámara para este sitio.","err");
-  else if(e.name==="NotFoundError")status("❌ No se encontró cámara.","err");
-  else if(e.name==="NotReadableError")status("❌ La cámara está siendo utilizada por otra aplicación.","err");
-  else status("❌ No se pudo abrir la cámara. Prueba Chrome + HTTPS.","err");
+   console.error(e);toast('No se pudo abrir la cámara. Revisa permiso y HTTPS.');
+   $('scanStatus').textContent='Error de cámara';
  }
 }
-
-async function initReader(){
- await stopReader();
- if(mode==="qr"){
-  if(!window.ZXingBrowser){status("⚠️ No se cargó el motor QR ZXing. Recarga la página con Internet.","err");return}
-  try{
-   qrReader=new ZXingBrowser.BrowserQRCodeReader();
-   loop=true;
-   status("🔎 Buscando exclusivamente QR con ZXing...");
-   // IMPORTANTE: ZXing recibe nuestro MISMO video ya abierto. No vuelve a pedir la cámara.
-   qrControls=await qrReader.decodeFromVideoElement($("video"),(result,error)=>{
-    if(result){
-      showZXBox(result);
-      const text=result.getText();
-      if(text) process(text,"QR");
-    }
-   });
-  }catch(e){
-   console.error(e);
-   status("⚠️ El lector QR no pudo iniciar sobre la cámara actual.","err");
-  }
- }else{
-  if(!("BarcodeDetector" in window)){status("⚠️ Este navegador no ofrece lector de barras. Usa Chrome o Samsung Internet actualizado.","err");return}
-  try{
-   const supported=await BarcodeDetector.getSupportedFormats();
-   const wanted=["code_128","code_39","code_93","ean_13","ean_8","upc_a","upc_e","itf","codabar"];
-   const formats=wanted.filter(x=>supported.includes(x));
-   if(!formats.length){status("⚠️ Este navegador no expone formatos de barras compatibles.","err");return}
-   barcodeDetector=new BarcodeDetector({formats});
-   loop=true;status("🔎 Buscando exclusivamente códigos de barras...");
-   scanBars();
-  }catch(e){console.error(e);status("⚠️ No fue posible iniciar el lector de barras.","err")}
+function stopCamera(show=true){
+ running=false;if(raf)cancelAnimationFrame(raf);raf=null;
+ try{if(barcodeReader)barcodeReader.reset()}catch(e){}
+ if(stream)stream.getTracks().forEach(t=>t.stop());
+ stream=null;track=null;video.srcObject=null;video.style.display='none';$('overlay').style.display='none';$('cameraMsg').style.display='block';
+ $('start').disabled=false;$('stop').disabled=true;
+ if(show)$('scanStatus').textContent='Cámara detenida';
+}
+async function loop(){
+ if(!running)return;
+ if(detector && video.readyState>=2){
+   try{
+     const codes=await detector.detect(video);
+     if(codes.length){
+       const c=codes[0];capture(c.rawValue||'');
+       updateBox(c);
+     }
+   }catch(e){}
  }
+ raf=requestAnimationFrame(loop);
 }
-
-async function scanBars(){
- if(!loop||mode!=="barcode")return;
- try{
-  const found=await barcodeDetector.detect($("video"));
-  if(found.length){showBarcodeBox(found[0]);if(found[0].rawValue)process(found[0].rawValue,"BARRAS")}
-  else resetBox();
- }catch(e){}
- barTimer=setTimeout(scanBars,140);
+function updateBox(c){
+ const box=c?.boundingBox;if(!box)return;
+ const vw=video.videoWidth||1,vh=video.videoHeight||1;
+ const rect=video.getBoundingClientRect();
+ const sx=rect.width/vw,sy=rect.height/vh;
+ const w=Math.max(55,box.width*sx),h=Math.max(55,box.height*sy);
+ $('target').style.width=Math.min(w,rect.width*.88)+'px';
+ $('target').style.height=Math.min(h,rect.height*.82)+'px';
+ $('target').style.left=(box.x*sx+w/2)+'px';
+ $('target').style.top=(box.y*sy+h/2)+'px';
+ $('target').style.transform='translate(-50%,-50%)';
 }
-
-function showZXBox(result){
- const p=result.getResultPoints?.()||[];
- const video=$("video");
- if(p.length>=2){
-  const xs=p.map(x=>x.getX()),ys=p.map(x=>x.getY());
-  placeBox(Math.min(...xs),Math.min(...ys),Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys),video.videoWidth,video.videoHeight,"qr");
- }else{
-  $("target").style.display="block";$("target").className="target qr";
- }
- $("scanmsg").textContent="▣ QR detectado";
-}
-function showBarcodeBox(code){
- const b=code.boundingBox;if(!b)return;
- placeBox(b.x,b.y,b.width,b.height,$("video").videoWidth,$("video").videoHeight,"barcode");
- $("scanmsg").textContent="▥ Código de barras detectado";
-}
-function placeBox(x,y,w,h,vw,vh,type){
- if(!vw||!vh)return;
- const target=$("target");let l=x/vw*100,t=y/vh*100,ww=w/vw*100,hh=h/vh*100;
- const px=Math.max(1.5,ww*.12),py=Math.max(2,hh*.18);
- l=Math.max(1,Math.min(99-ww,l-px));t=Math.max(1,Math.min(99-hh,t-py));ww=Math.min(98-l,ww+px*2);hh=Math.min(98-t,hh+py*2);
- target.style.left=l+"%";target.style.top=t+"%";target.style.width=ww+"%";target.style.height=hh+"%";target.style.display="block";target.className="target "+type;
-}
-function resetBox(){$("target").style.display="none";$("scanmsg").textContent=mode==="qr"?"Modo QR: apunta al QR que quieres leer":"Modo barras: apunta al código de barras"}
-
-function process(value,type){
- if(locked)return;locked=true;setTimeout(()=>locked=false,1300);
- value=String(value||"").trim();if(!value)return;
- $("result").style.display="block";$("result").textContent=(type==="QR"?"QR leído: ":"Código de barras leído: ")+value;
-
- // SIN identificar SERIAL/MAC: primera lectura siempre SERIAL, segunda siempre MAC.
- if(serial===null){
-  serial=value;$("stepTitle").textContent="2. SEGUNDA LECTURA → MAC";$("stepText").textContent="El siguiente código detectado siempre será MAC";status("✅ SERIAL capturado. Ahora lee la MAC.","ok");navigator.vibrate?.(100);return;
- }
- if(items.some(x=>x.s===serial||x.m===value)){
-  status("⚠️ SERIAL o MAC ya existe en el inventario.","err");serial=null;$("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";$("stepText").textContent="El primer código detectado siempre será SERIAL";return;
- }
- items.push({s:serial,m:value});localStorage.setItem("iqr129",JSON.stringify(items));serial=null;
- $("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";$("stepText").textContent="El primer código detectado siempre será SERIAL";
- status("✅ SERIAL + MAC registrados.","ok");navigator.vibrate?.([100,60,100]);render();
-}
-
-$("qrMode").onclick=()=>setMode("qr");
-$("barMode").onclick=()=>setMode("barcode");
-$("start").onclick=startCamera;
-$("stop").onclick=()=>{stopCamera();status("Cámara apagada.")};
-$("flip").onclick=()=>{facing=facing==="environment"?"user":"environment";startCamera()};
-$("torch").onclick=async()=>{if(!track)return;try{let s=track.getSettings();await track.applyConstraints({advanced:[{torch:!s.torch}]})}catch(e){status("El navegador no permite controlar la linterna.","err")}};
-$("zoom").oninput=e=>track?.applyConstraints({advanced:[{zoom:Number(e.target.value)}]}).catch(()=>{});
-$("manual").onclick=()=>{const v=prompt("Código de la lectura actual");if(v)process(v,"MANUAL")};
-$("clear").onclick=()=>{if(confirm("¿Borrar inventario?")){items=[];serial=null;localStorage.setItem("iqr129","[]");$("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";$("stepText").textContent="El primer código detectado siempre será SERIAL";render()}};
-render();
+$('start').onclick=startCamera;$('stop').onclick=()=>stopCamera();
+$('flip').onclick=async()=>{
+ const devices=await navigator.mediaDevices.enumerateDevices();
+ const cams=devices.filter(d=>d.kind==='videoinput');if(cams.length<2){toast('Solo se detectó una cámara.');return}
+ cameraIndex=(cameraIndex+1)%cams.length;await startCamera();
+};
+$('save').onclick=saveCurrent;$('clear').onclick=clearCurrent;
+$('manualBtn').onclick=()=>{capture($('manual').value);$('manual').value=''};
+$('search').oninput=render;
+function download(name,type,text){const b=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
+function esc(v){return '"'+String(v??'').replaceAll('"','""')+'"'}
+$('csv').onclick=()=>download('inventario_qr.csv','text/csv;charset=utf-8',[['ID','SERIAL','MAC','ESTADO','FECHA'],...data.map((x,i)=>[i+1,x.serial,x.mac,'COMPLETO',new Date(x.date).toLocaleString()])].map(r=>r.map(esc).join(',')).join('\n'));
+$('excel').onclick=()=>{let rows=[['ID','SERIAL','MAC','ESTADO','FECHA'],...data.map((x,i)=>[i+1,x.serial,x.mac,'COMPLETO',new Date(x.date).toLocaleString()])];let xml='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Inventario"><Table>';rows.forEach(r=>xml+='<Row>'+r.map(v=>'<Cell><Data ss:Type="String">'+escapeHtml(v)+'</Data></Cell>').join('')+'</Row>');xml+='</Table></Worksheet></Workbook>';download('inventario_qr.xls','application/vnd.ms-excel',xml)};
+$('erase').onclick=()=>{if(confirm('¿Borrar todo el inventario?')){data=[];saveDB();toast('Inventario borrado.')}};
+updateCurrent();render();
 </script>
 </body>
 </html>
