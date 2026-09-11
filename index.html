@@ -4,147 +4,137 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#000">
-<title>Inventario QR 1.2.2</title>
+<title>Inventario QR 1.2.3</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1220;color:#fff}
 header{padding:14px 16px;background:#111827}h1{margin:0;font-size:20px}p{margin:5px 0;font-size:13px;color:#cbd5e1}
-main{max-width:760px;margin:auto}.camera{position:relative;background:#000;width:100%;overflow:hidden}
-video{display:block;width:100%;height:auto;min-height:55vh;object-fit:cover;background:#000}
-.overlay{position:absolute;inset:0;pointer-events:none}
-.target{position:absolute;left:10%;right:10%;top:35%;height:30%;border:2px solid #fff;border-radius:14px;box-shadow:0 0 0 9999px #0003}
-.target:after{content:"";position:absolute;left:10%;right:10%;top:50%;border-top:2px solid #fff}
-.panel{padding:12px 14px;background:#111827}.status{padding:10px;border-radius:10px;background:#1f2937;font-size:13px}
-.ok{background:#064e3b}.err{background:#7f1d1d}
-.buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
-button{padding:12px;border:0;border-radius:10px;font-weight:bold;font-size:14px}button:disabled{opacity:.45}
-.primary{background:#fff;color:#111827}.secondary{background:#334155;color:#fff}
-.controls{margin-top:10px}.controls label{display:block;font-size:12px;color:#cbd5e1;margin:7px 0 3px}
-input[type=range]{width:100%}.row{display:flex;gap:8px}.row button{flex:1}
-table{width:100%;border-collapse:collapse;background:#fff;color:#111827;font-size:12px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
+.camera{position:relative;background:#000;overflow:hidden}.camera video{display:block;width:100%;height:auto;min-height:58vh;object-fit:cover;background:#000}
+.overlay{position:absolute;inset:0;pointer-events:none}.target{position:absolute;left:8%;right:8%;top:34%;height:32%;border:2px solid #fff;border-radius:14px;box-shadow:0 0 0 9999px #0002}
+.target:after{content:"";position:absolute;left:5%;right:5%;top:50%;border-top:2px solid #fff}
+.scanmsg{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:13px;text-shadow:0 1px 4px #000}
+.panel{padding:12px 14px;background:#111827}.status{padding:10px;border-radius:10px;background:#1f2937;font-size:13px}.ok{background:#064e3b}.err{background:#7f1d1d}
+.buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}button{padding:12px;border:0;border-radius:10px;font-weight:bold;font-size:14px}.primary{background:#fff;color:#111827}.secondary{background:#334155;color:#fff}
+.controls{margin-top:10px}.controls label{display:block;font-size:12px;color:#cbd5e1;margin:7px 0 3px}input[type=range]{width:100%}
 .card{padding:14px;background:#fff;color:#111827}.small{font-size:12px;color:#64748b}
-@media(max-width:600px){video{min-height:58vh}}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
+.row{display:flex;gap:8px}.row button{flex:1}
+#result{margin-top:10px;padding:10px;border-radius:10px;background:#f1f5f9;color:#111827;display:none}
 </style>
 </head>
 <body>
-<header><h1>📷 Inventario QR — Cámara libre</h1><p>Fase 1.2.2 · enfoque y controles del dispositivo</p></header>
+<header><h1>📷 Inventario QR — Cámara + lector</h1><p>Fase 1.2.3 · cámara libre + lectura QR/códigos de barras</p></header>
 
 <div class="camera">
-  <video id="video" autoplay playsinline muted></video>
-  <div class="overlay"><div class="target"></div></div>
+<video id="video" autoplay playsinline muted></video>
+<div class="overlay"><div class="target"></div><div class="scanmsg">Centra el código dentro del recuadro</div></div>
 </div>
 
 <div class="panel">
-  <div id="status" class="status">Pulsa iniciar cámara.</div>
-  <div class="buttons">
-    <button id="start" class="primary">▶ Iniciar cámara</button>
-    <button id="stop" class="secondary">⏹ Detener</button>
-    <button id="torch" class="secondary" disabled>🔦 Linterna</button>
-    <button id="flip" class="secondary">🔄 Cámara</button>
-  </div>
-  <div class="controls">
-    <label>🔍 Zoom (si el celular lo permite)</label>
-    <input id="zoom" type="range" min="1" max="1" step="0.1" value="1" disabled>
-    <label>🎯 Enfoque (si el celular lo permite)</label>
-    <input id="focus" type="range" min="0" max="1" step="0.05" value="0.5" disabled>
-  </div>
+<div id="status" class="status">Pulsa iniciar cámara.</div>
+<div id="result"></div>
+<div class="buttons">
+<button id="start" class="primary">▶ Iniciar cámara</button>
+<button id="stop" class="secondary">⏹ Detener</button>
+<button id="torch" class="secondary" disabled>🔦 Linterna</button>
+<button id="flip" class="secondary">🔄 Cámara</button>
+</div>
+<div class="controls">
+<label>🔍 Zoom</label><input id="zoom" type="range" min="1" max="1" step="0.1" value="1" disabled>
+</div>
 </div>
 
 <div class="card">
-  <b>Flujo de inventario</b>
-  <p id="step">1️⃣ Escanea SERIAL → 2️⃣ Escanea MAC</p>
-  <div class="row">
-    <button id="manual" class="secondary">Entrada manual</button>
-    <button id="clear" class="secondary">Borrar inventario</button>
-  </div>
-  <div style="margin-top:10px;overflow:auto">
-    <table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th></tr></thead><tbody id="tbody"></tbody></table>
-  </div>
+<b>Flujo de inventario</b>
+<p id="step">1️⃣ Escanea SERIAL → 2️⃣ Escanea MAC</p>
+<div class="row">
+<button id="manual" class="secondary">Entrada manual</button>
+<button id="clear" class="secondary">Borrar</button>
+</div>
+<div style="margin-top:10px;overflow:auto"><table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th></tr></thead><tbody id="tbody"></tbody></table></div>
 </div>
 
 <script>
-let stream=null, track=null, facing="environment", serial=null, locked=false;
-let items=JSON.parse(localStorage.getItem("iqr122")||"[]");
+let stream=null,track=null,facing="environment",serial=null,locked=false,scanLoop=false,detector=null;
+let items=JSON.parse(localStorage.getItem("iqr123")||"[]");
 const $=x=>document.getElementById(x);
-function status(t,c=""){ $("status").textContent=t; $("status").className="status "+c; }
-function mac(v){let s=String(v).toUpperCase().replace(/[-:.\\s]/g,"");if(!/^[0-9A-F]{12}$/.test(s))return null;return s.match(/../g).join(":")}
-function render(){ $("tbody").innerHTML=items.map((x,i)=>`<tr><td>${i+1}</td><td>${x.s}</td><td>${x.m}</td></tr>`).join("") }
+function status(t,c=""){ $("status").textContent=t;$("status").className="status "+c }
+function normalizeMac(v){let s=String(v).toUpperCase().replace(/[-:.\\s]/g,"");if(!/^[0-9A-F]{12}$/.test(s))return null;return s.match(/../g).join(":")}
+function render(){$("tbody").innerHTML=items.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.s)}</td><td>${esc(x.m)}</td></tr>`).join("")}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 async function stop(){
+ scanLoop=false;
  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;track=null}
- $("torch").disabled=true;$("zoom").disabled=true;$("focus").disabled=true;
+ $("torch").disabled=true;$("zoom").disabled=true;
+ $("video").srcObject=null;
 }
-async function capabilities(){
+async function setupCaps(){
  if(!track)return;
  const c=track.getCapabilities?track.getCapabilities():{};
- const z=$("zoom"),f=$("focus"),torch=$("torch");
- if(c.zoom){z.min=c.zoom.min;z.max=c.zoom.max;z.step=c.zoom.step||0.1;z.value=Math.min(c.zoom.max,Math.max(c.zoom.min,c.zoom.min));z.disabled=false}
- if(c.torch){torch.disabled=false}
- if(c.focusMode && c.focusMode.length){
-   // Prefer continuous autofocus: no restriction on normal camera autofocus.
-   try{await track.applyConstraints({advanced:[{focusMode:"continuous"}]})}catch(e){}
-   f.disabled=false;
- } else f.disabled=true;
+ if(c.zoom){let z=$("zoom");z.min=c.zoom.min;z.max=c.zoom.max;z.step=c.zoom.step||0.1;z.value=c.zoom.min;z.disabled=false}
+ if(c.torch)$("torch").disabled=false;
+ try{await track.applyConstraints({advanced:[{focusMode:"continuous"}]})}catch(e){}
 }
 async function start(){
  try{
-   await stop();
-   if(!window.isSecureContext){status("❌ Abre la aplicación mediante HTTPS.","err");return}
-   if(!navigator.mediaDevices?.getUserMedia){status("❌ El navegador no permite cámara.","err");return}
-   status("📷 Encendiendo cámara y habilitando sus capacidades...");
-   stream=await navigator.mediaDevices.getUserMedia({
-     audio:false,
-     video:{
-       facingMode:{ideal:facing},
-       width:{ideal:1920},
-       height:{ideal:1080},
-       frameRate:{ideal:30,max:60}
-     }
-   });
-   $("video").srcObject=stream;
-   await $("video").play();
-   track=stream.getVideoTracks()[0];
-   await capabilities();
-   // Autofocus continuo cuando el hardware/browser lo ofrece.
-   try{await track.applyConstraints({advanced:[{focusMode:"continuous"}]})}catch(e){}
-   status("✅ Cámara activa. Enfoque automático continuo habilitado cuando el celular lo permite.","ok");
- }catch(e){
-   console.error(e); await stop();
-   status("❌ No se pudo abrir la cámara. Revisa el permiso del sitio y prueba Chrome.","err");
+  await stop();
+  if(!window.isSecureContext){status("❌ Necesitas HTTPS.","err");return}
+  status("📷 Encendiendo cámara...");
+  stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:60}}});
+  $("video").srcObject=stream;await $("video").play();track=stream.getVideoTracks()[0];await setupCaps();
+  status("✅ Cámara activa. Preparando lector QR/códigos...","ok");
+  await startDetector();
+ }catch(e){console.error(e);await stop();status("❌ No se pudo abrir la cámara. Revisa el permiso y usa Chrome.","err")}
+}
+async function startDetector(){
+ if(!("BarcodeDetector" in window)){
+   status("⚠️ Cámara activa. Este navegador no expone BarcodeDetector; usa Chrome actualizado.","err");
+   return;
  }
-}
-async function applyZoom(v){
- if(!track)return;
- try{await track.applyConstraints({advanced:[{zoom:Number(v)}]})}catch(e){}
-}
-async function applyFocus(v){
- if(!track)return;
- const c=track.getCapabilities?track.getCapabilities():{};
  try{
-   if(c.focusDistance){
-     const d=c.focusDistance;
-     const val=d.min+(d.max-d.min)*Number(v);
-     await track.applyConstraints({advanced:[{focusDistance:val}]});
+  const wanted=["qr_code","code_128","code_39","code_93","ean_13","ean_8","upc_a","upc_e","itf","codabar","data_matrix","aztec","pdf417"];
+  let supported=await BarcodeDetector.getSupportedFormats();
+  let formats=wanted.filter(x=>supported.includes(x));
+  detector=new BarcodeDetector({formats});
+  scanLoop=true;
+  scanFrame();
+ }catch(e){console.error(e);status("⚠️ Cámara activa, pero el lector no pudo inicializarse.","err")}
+}
+async function scanFrame(){
+ if(!scanLoop||!detector)return;
+ try{
+  if($("video").readyState>=2){
+   const codes=await detector.detect($("video"));
+   if(codes.length){
+    const value=codes[0].rawValue||"";
+    if(value) process(value);
    }
+  }
  }catch(e){}
+ requestAnimationFrame(scanFrame);
+}
+function process(v){
+ if(locked)return;locked=true;setTimeout(()=>locked=false,1200);
+ v=String(v).trim();if(!v)return;
+ $("result").style.display="block";$("result").textContent="Código detectado: "+v;
+ if(!serial){
+  if(normalizeMac(v)){status("Primero escanea el SERIAL.","err");return}
+  serial=v;$("step").textContent="2️⃣ Ahora escanea la MAC";status("✅ SERIAL capturado: "+v+" — ahora enfoca la MAC.","ok");navigator.vibrate?.(100);return;
+ }
+ let m=normalizeMac(v);
+ if(!m){status("❌ El código leído no parece una MAC válida.","err");return}
+ if(items.some(x=>x.s.toUpperCase()===serial.toUpperCase()||x.m===m)){
+  status("⚠️ SERIAL o MAC duplicado.","err");serial=null;$("step").textContent="1️⃣ Escanea SERIAL";return
+ }
+ items.push({s:serial,m});localStorage.setItem("iqr123",JSON.stringify(items));serial=null;
+ $("step").textContent="1️⃣ Escanea SERIAL → 2️⃣ Escanea MAC";status("✅ Equipo agregado correctamente.","ok");navigator.vibrate?.([100,60,100]);render()
 }
 $("start").onclick=start;
 $("stop").onclick=()=>{stop();status("Cámara detenida.")};
 $("flip").onclick=async()=>{facing=facing==="environment"?"user":"environment";await start()};
-$("torch").onclick=async()=>{if(!track)return;try{let s=track.getSettings();await track.applyConstraints({advanced:[{torch:!s.torch}]});$("torch").textContent=s.torch?"🔦 Linterna":"🔦 Linterna ON"}catch(e){status("El celular/navegador no permite controlar la linterna desde esta página.","err")}};
-$("zoom").oninput=e=>applyZoom(e.target.value);
-$("focus").oninput=e=>applyFocus(e.target.value);
+$("torch").onclick=async()=>{if(!track)return;try{let s=track.getSettings();await track.applyConstraints({advanced:[{torch:!s.torch}]})}catch(e){status("El celular no permite controlar la linterna desde el navegador.","err")}};
+$("zoom").oninput=e=>track?.applyConstraints({advanced:[{zoom:Number(e.target.value)}]}).catch(()=>{});
 $("manual").onclick=()=>{let v=prompt("Escribe SERIAL o MAC");if(v)process(v)};
-$("clear").onclick=()=>{if(confirm("¿Borrar inventario?")){items=[];localStorage.setItem("iqr122","[]");render()}};
-function process(v){
- if(locked)return;locked=true;setTimeout(()=>locked=false,1200);
- v=String(v).trim();if(!v)return;
- if(!serial){
-   if(mac(v)){status("Primero debes escanear el SERIAL.","err");return}
-   serial=v;$("step").textContent="2️⃣ Ahora escanea la MAC";status("✅ SERIAL: "+v+" — enfoca la MAC.","ok");return;
- }
- let m=mac(v);if(!m){status("❌ MAC no válida.","err");return}
- if(items.some(x=>x.s.toUpperCase()===serial.toUpperCase()||x.m===m)){status("⚠️ SERIAL o MAC duplicado.","err");serial=null;$("step").textContent="1️⃣ Escanea SERIAL";return}
- items.push({s:serial,m});localStorage.setItem("iqr122",JSON.stringify(items));serial=null;$("step").textContent="1️⃣ Escanea SERIAL → 2️⃣ Escanea MAC";status("✅ Equipo agregado.","ok");render()
-}
+$("clear").onclick=()=>{if(confirm("¿Borrar inventario?")){items=[];localStorage.setItem("iqr123","[]");render()}};
 render();
 </script>
 </body>
