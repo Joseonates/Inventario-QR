@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Inventario QR — Diagnóstico QR</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1020;color:#fff}
+header{padding:16px;background:#111936;position:sticky;top:0;z-index:5}
+h1{margin:0 0 6px;font-size:20px}p{margin:4px 0;color:#cbd5e1;font-size:13px}
+main{max-width:900px;margin:auto;padding:14px}
+.card{background:#151e3d;border:1px solid #29365f;border-radius:16px;padding:14px;margin-bottom:14px}
+.camera{position:relative;background:#000;border-radius:14px;overflow:hidden}
+video{display:block;width:100%;height:auto;min-height:260px;object-fit:cover;background:#000}
+.status{padding:10px;border-radius:10px;background:#0d1430;margin-top:10px;font-weight:700}
+button{border:0;border-radius:12px;padding:13px 15px;font-weight:700;font-size:15px;margin:5px 3px;cursor:pointer}
+.primary{background:#fff;color:#111}.secondary{background:#27345d;color:#fff}
+.danger{background:#7f1d1d;color:#fff}
+pre{white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.45;color:#dbeafe}
+canvas{width:100%;max-height:500px;object-fit:contain;background:#000;border-radius:12px;margin-top:10px}
+.ok{color:#86efac}.warn{color:#fde68a}.bad{color:#fca5a5}
+.big{font-size:18px}.hint{font-size:14px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+<h1>Diagnóstico de lectura QR</h1>
+<p>Esta versión NO cambia la cámara. Solo comprueba si el teléfono entrega correctamente los fotogramas y prueba la lectura QR de varias formas.</p>
+</header>
+<main>
+<section class="card">
+<div class="camera"><video id="video" autoplay playsinline muted></video></div>
+<div id="status" class="status">Cámara detenida.</div>
+<div id="nativeLiveResult" class="status">BarcodeDetector nativo: en espera.</div>
+<button class="primary" id="start">INICIAR CÁMARA</button>
+<button class="secondary" id="flip">CAMBIAR CÁMARA</button>
+<button class="secondary" id="shot">CAPTURAR FOTO DE PRUEBA</button>
+<button class="danger" id="stop">DETENER</button>
+</section>
+
+<section class="card">
+<div class="big">Resultado de diagnóstico</div>
+<pre id="diag">Aún no iniciado.</pre>
+</section>
+
+<section class="card">
+<div class="big">Prueba de imagen</div>
+<p class="hint">Apunta a un QR grande, bien iluminado y sin reflejos. Luego pulsa “CAPTURAR FOTO DE PRUEBA”. Si aquí se ve el QR correctamente, la cámara está bien y el problema está en el decodificador.</p>
+<canvas id="canvas"></canvas>
+<div id="qrResult" class="status">ZXing: sin prueba todavía.</div>
+<div id="qrResultNative" class="status">BarcodeDetector nativo: sin prueba todavía.</div>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<script>
+const video=document.getElementById('video');
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d',{willReadFrequently:true});
+const statusEl=document.getElementById('status');
+const diagEl=document.getElementById('diag');
+const qrResult=document.getElementById('qrResult');
+let stream=null, facing='environment', zxing=null, running=false, lastTry=0;
+let nativeDetector=null, nativeRAF=null, nativeBusy=false, nativeLastTry=0;
+const nativeLiveResult=document.getElementById('nativeLiveResult');
+const qrResultNative=document.getElementById('qrResultNative');
+
+function setStatus(t){statusEl.textContent=t}
+function showDiag(extra=''){
+  const track=stream?.getVideoTracks?.()[0];
+  const s=track?.getSettings?.()||{};
+  const caps=track?.getCapabilities?.()||{};
+  const ua=navigator.userAgent;
+  const bd='BarcodeDetector' in window;
+  let bdFormats='No disponible';
+  if(bd && BarcodeDetector.getSupportedFormats){
+    BarcodeDetector.getSupportedFormats().then(x=>{
+      diagEl.textContent =
+`VIDEO
+videoWidth: ${video.videoWidth}
+videoHeight: ${video.videoHeight}
+readyState: ${video.readyState}
+
+TRACK SETTINGS
+${JSON.stringify(s,null,2)}
+
+CAMERA CAPABILITIES (resumen)
+zoom: ${caps.zoom!==undefined ? JSON.stringify(caps.zoom) : 'no expuesto'}
+torch: ${caps.torch!==undefined ? JSON.stringify(caps.torch) : 'no expuesto'}
+focusMode: ${caps.focusMode!==undefined ? JSON.stringify(caps.focusMode) : 'no expuesto'}
+
+DECODIFICADORES
+BarcodeDetector: ${bd}
+Formatos nativos: ${JSON.stringify(x)}
+ZXing cargado: ${!!window.ZXingBrowser}
+
+NAVEGADOR
+${ua}
+
+${extra}`;
+    }).catch(()=>diagEl.textContent=baseDiag(s, caps, bd, extra));
+  } else diagEl.textContent=baseDiag(s,caps,bd,extra);
+}
+function baseDiag(s,caps,bd,extra){
+return `VIDEO
+videoWidth: ${video.videoWidth}
+videoHeight: ${video.videoHeight}
+readyState: ${video.readyState}
+
+TRACK SETTINGS
+${JSON.stringify(s,null,2)}
+
+DECODIFICADORES
+BarcodeDetector: ${bd}
+ZXing cargado: ${!!window.ZXingBrowser}
+
+${extra}`;
+}
+async function start(){
+  try{
+    if(stream) stop();
+    setStatus('Solicitando cámara trasera…');
+    const devices=await navigator.mediaDevices.enumerateDevices();
+    const cams=devices.filter(d=>d.kind==='videoinput');
+    let deviceId='';
+    if(facing==='environment'){
+      const rear=cams.find(c=>/back|rear|environment|trasera|posterior/i.test(c.label));
+      if(rear) deviceId=rear.deviceId;
+    } else {
+      const front=cams.find(c=>/front|user|facetime|frontal/i.test(c.label));
+      if(front) deviceId=front.deviceId;
+    }
+    const constraints=deviceId
+      ? {video:{deviceId:{exact:deviceId},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30}},audio:false}
+      : {video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30}},audio:false};
+    stream=await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject=stream;
+    await video.play();
+    running=true;
+    setStatus('Cámara activa. Esperando imagen…');
+    const tr=stream.getVideoTracks()[0], caps=tr.getCapabilities?.()||{};
+    if(caps.focusMode && Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')){
+      try{await tr.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+    }
+    showDiag('Cámara iniciada correctamente.');
+    startZXing();
+    if(await initNativeDetector()) startNativeLoop();
+  }catch(e){
+    running=false;
+    setStatus('ERROR: '+e.name+' — '+e.message);
+    diagEl.textContent='ERROR DE CÁMARA\n'+e.stack;
+  }
+}
+function stop(){
+  running=false;
+  if(zxing){try{zxing.reset()}catch(e){} zxing=null}
+  stopNativeLoop();
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  video.srcObject=null;
+  setStatus('Cámara detenida.');
+  nativeLiveResult.textContent='BarcodeDetector nativo: en espera.';
+}
+async function initNativeDetector(){
+  if(!('BarcodeDetector' in window)){nativeLiveResult.innerHTML='<span class="warn">BarcodeDetector nativo: no disponible en este navegador.</span>';return false}
+  try{
+    const supported=await BarcodeDetector.getSupportedFormats();
+    if(!supported.includes('qr_code')){nativeLiveResult.innerHTML='<span class="warn">BarcodeDetector nativo: no soporta qr_code.</span>';return false}
+    nativeDetector=new BarcodeDetector({formats:['qr_code']});
+    return true;
+  }catch(e){nativeLiveResult.innerHTML='<span class="bad">BarcodeDetector nativo: error al iniciar — '+e.message+'</span>';return false}
+}
+function startNativeLoop(){
+  const loop=async()=>{
+    if(!running){nativeRAF=null;return}
+    if(!nativeBusy && video.videoWidth && Date.now()-nativeLastTry>150){
+      nativeBusy=true; nativeLastTry=Date.now();
+      try{
+        const codes=await nativeDetector.detect(video);
+        if(codes && codes.length){
+          nativeLiveResult.innerHTML='<span class="ok">BarcodeDetector nativo: QR DETECTADO: '+escapeHtml(codes[0].rawValue)+'</span>';
+        } else {
+          nativeLiveResult.innerHTML='BarcodeDetector nativo: buscando…';
+        }
+      }catch(e){
+        nativeLiveResult.innerHTML='<span class="bad">BarcodeDetector nativo: error — '+e.message+'</span>';
+      }
+      nativeBusy=false;
+    }
+    nativeRAF=requestAnimationFrame(loop);
+  };
+  nativeRAF=requestAnimationFrame(loop);
+}
+function stopNativeLoop(){
+  if(nativeRAF){cancelAnimationFrame(nativeRAF);nativeRAF=null}
+  nativeBusy=false;
+}
+function startZXing(){
+  if(!window.ZXingBrowser){showDiag('ZXing no pudo cargarse desde CDN.');return}
+  try{
+    zxing=new ZXingBrowser.BrowserQRCodeReader();
+    zxing.decodeFromVideoElement(video,(result,err)=>{
+      if(result){
+        qrResult.innerHTML='<span class="ok">QR DETECTADO: '+escapeHtml(result.getText())+'</span>';
+        setStatus('QR detectado correctamente.');
+      }
+      if(Date.now()-lastTry>1500){lastTry=Date.now();showDiag(result?'ÚLTIMO RESULTADO: '+result.getText():'ZXing está intentando leer el video…')}
+    });
+  }catch(e){showDiag('ERROR ZXing: '+e.stack)}
+}
+function capture(){
+  if(!video.videoWidth){qrResult.innerHTML='<span class="bad">El video todavía no tiene imagen.</span>';qrResultNative.textContent='';return}
+  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  qrResult.textContent='ZXing: probando sobre el fotograma completo…';
+  qrResultNative.textContent='BarcodeDetector nativo: probando sobre el fotograma completo…';
+
+  if(!window.ZXingBrowser){qrResult.innerHTML='<span class="bad">ZXing no está cargado.</span>'}
+  else{
+    try{
+      const reader=new ZXingBrowser.BrowserQRCodeReader();
+      reader.decodeFromCanvas(canvas).then(r=>{
+        qrResult.innerHTML='<span class="ok">ZXing: QR DETECTADO EN FOTO: '+escapeHtml(r.getText())+'</span>';
+      }).catch(e=>{
+        qrResult.innerHTML='<span class="warn">ZXing: no se pudo leer este fotograma.</span>';
+        showDiag('ZXing no encontró QR en el fotograma: '+e);
+      });
+    }catch(e){qrResult.textContent='ZXing: error al probar el fotograma: '+e}
+  }
+
+  if(!('BarcodeDetector' in window)){qrResultNative.innerHTML='<span class="warn">BarcodeDetector nativo: no disponible en este navegador.</span>';return}
+  (async()=>{
+    try{
+      const det=nativeDetector||new BarcodeDetector({formats:['qr_code']});
+      const codes=await det.detect(canvas);
+      if(codes && codes.length){
+        qrResultNative.innerHTML='<span class="ok">BarcodeDetector nativo: QR DETECTADO EN FOTO: '+escapeHtml(codes[0].rawValue)+'</span>';
+      }else{
+        qrResultNative.innerHTML='<span class="warn">BarcodeDetector nativo: no encontró QR en este fotograma.</span>';
+      }
+    }catch(e){
+      qrResultNative.innerHTML='<span class="bad">BarcodeDetector nativo: error — '+e.message+'</span>';
+    }
+  })();
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+document.getElementById('start').onclick=start;
+document.getElementById('stop').onclick=stop;
+document.getElementById('shot').onclick=capture;
+document.getElementById('flip').onclick=()=>{facing=facing==='environment'?'user':'environment';start()};
+</script>
+</body>
+</html>
