@@ -1,74 +1,37 @@
-<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f172a">
-<link rel="manifest" href="manifest.json">
-<title>Inventario QR</title>
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a"><link rel="manifest" href="manifest.json"><title>Inventario QR 1.2</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f1f5f9;color:#0f172a}
-header{background:#0f172a;color:#fff;padding:16px;position:sticky;top:0;z-index:5}h1{margin:0;font-size:21px}header small{opacity:.75}
-main{max-width:900px;margin:auto;padding:10px}.card{background:white;border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 3px 15px #0001}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.stat{text-align:center;background:#f8fafc;border-radius:11px;padding:9px}.stat b{display:block;font-size:21px}.stat span{font-size:10px;color:#64748b}
-button,input,select{font:inherit}button{border:0;border-radius:10px;padding:11px;font-weight:bold;cursor:pointer}.primary{background:#2563eb;color:white}.secondary{background:#e2e8f0}.danger{background:#fee2e2;color:#991b1b}.ok{background:#dcfce7;color:#166534}
-.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:110px}input,select{padding:11px;border:1px solid #cbd5e1;border-radius:9px;width:100%;background:#fff}
-#reader{width:100%;min-height:290px;border-radius:14px;overflow:hidden;background:#050b16}.current{padding:12px;background:#f8fafc;border-radius:12px}.pill{display:inline-block;padding:5px 9px;border-radius:99px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:bold}
-table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}.wrap{overflow:auto;max-height:420px}.hint{font-size:12px;line-height:1.45;color:#64748b}.toast{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;z-index:20;max-width:90%}
-</style>
-</head>
-<body>
-<header><h1>📦 Inventario QR</h1><small>Fase 1.1 · PWA para celular</small></header>
-<main>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f1f5f9;color:#0f172a}header{background:#0f172a;color:#fff;padding:15px;position:sticky;top:0;z-index:5}h1{margin:0;font-size:20px}header small{opacity:.75}main{max-width:900px;margin:auto;padding:10px}.card{background:#fff;border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 3px 15px #0001}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.stat{text-align:center;background:#f8fafc;border-radius:11px;padding:9px}.stat b{display:block;font-size:21px}.stat span{font-size:10px;color:#64748b}button,input,select{font:inherit}button{border:0;border-radius:10px;padding:11px;font-weight:bold;cursor:pointer}.primary{background:#2563eb;color:#fff}.secondary{background:#e2e8f0}.danger{background:#fee2e2;color:#991b1b}.ok{background:#dcfce7;color:#166534}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:110px}input,select{padding:11px;border:1px solid #cbd5e1;border-radius:9px;width:100%;background:#fff}
+.scanner{position:relative;background:#050b16;border-radius:14px;overflow:hidden;aspect-ratio:3/4;max-height:520px}.scanner video{width:100%;height:100%;object-fit:cover}.scanbox{position:absolute;left:12%;top:30%;width:76%;height:25%;border:3px solid #fff;border-radius:13px;z-index:2;box-shadow:0 0 0 999px #0006}.scanbox:after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:#fff8}.scanlabel{position:absolute;top:7%;width:100%;text-align:center;z-index:3;color:#fff;font-size:16px;font-weight:bold;text-shadow:0 1px 3px #000}.hintcam{position:absolute;bottom:9%;width:100%;text-align:center;z-index:3;color:#fff;font-size:12px;text-shadow:0 1px 3px #000}.controls{position:absolute;bottom:2%;left:0;right:0;z-index:4;display:flex;gap:6px;justify-content:center}.controls button{padding:8px 11px}.current{padding:12px;background:#f8fafc;border-radius:12px}.pill{display:inline-block;padding:5px 9px;border-radius:99px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:bold}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}.wrap{overflow:auto;max-height:420px}.hint{font-size:12px;line-height:1.45;color:#64748b}.toast{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;z-index:20;max-width:92%}
+</style></head><body>
+<header><h1>📦 Inventario QR</h1><small>Fase 1.2 · Escaneo dirigido Serial → MAC</small></header><main>
 <div class="stats"><div class="stat"><b id="total">0</b><span>EQUIPOS</span></div><div class="stat"><b id="complete">0</b><span>COMPLETOS</span></div><div class="stat"><b id="pending">0</b><span>PENDIENTES</span></div></div>
-
-<section class="card">
-<h3>📷 Escáner</h3>
-<div id="reader"></div>
-<div class="row" style="margin-top:9px"><button class="primary" id="start">▶ Iniciar escáner</button><button class="secondary" id="stop">■ Detener</button></div>
-<p class="hint">Al escanear un código, la aplicación intenta reconocer una MAC automáticamente. Para usar la cámara, abre esta PWA desde una dirección <b>https://</b> y concede permiso de cámara.</p>
-</section>
-
-<section class="card">
-<h3>🔗 Equipo actual</h3>
-<div class="current">
-<p><span class="pill" id="step">1 · ESPERANDO SERIAL</span></p>
-<p><b>Serial:</b> <span id="serial">—</span></p>
-<p><b>MAC:</b> <span id="mac">—</span></p>
-<div class="row"><button class="ok" id="save">💾 Guardar</button><button class="secondary" id="new">↻ Nuevo equipo</button></div>
-</div>
-<label style="display:block;margin-top:12px;font-size:12px;color:#64748b;font-weight:bold">Tipo de código</label>
-<select id="type"><option value="auto">Automático</option><option value="serial">Forzar Serial</option><option value="mac">Forzar MAC</option></select>
-<label style="display:block;margin-top:12px;font-size:12px;color:#64748b;font-weight:bold">Prueba manual</label>
-<div class="row"><input id="manual" placeholder="SN123456 o 00:11:22:33:44:55"><button class="primary" id="add">Agregar</button></div>
-</section>
-
-<section class="card">
-<h3>📋 Inventario</h3>
-<div class="row"><button class="primary" id="csv">⬇ CSV</button><button class="primary" id="excel">⬇ Excel</button><button class="danger" id="erase">🗑 Borrar</button></div>
-<input id="search" style="margin-top:9px" placeholder="Buscar serial o MAC">
-<div class="wrap" style="margin-top:9px"><table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th><th>ESTADO</th><th></th></tr></thead><tbody id="body"></tbody></table></div>
-</section>
+<section class="card"><h3>📷 Escaneo dirigido</h3><div class="scanner"><div class="scanlabel" id="scanLabel">ESCANEAR SERIAL</div><video id="video" playsinline></video><div class="scanbox"></div><div class="hintcam">Centre SOLO el código que desea leer</div><div class="controls"><button class="secondary" id="light">🔦 Linterna</button><button class="secondary" id="zoom">🔍 Zoom 1x</button></div></div>
+<div class="row" style="margin-top:9px"><button class="primary" id="start">▶ Iniciar cámara</button><button class="secondary" id="stop">■ Detener</button></div>
+<p class="hint">El recuadro sirve como guía. En modo automático, el sistema acepta Serial en el primer paso y MAC en el segundo.</p></section>
+<section class="card"><h3>🔗 Equipo actual</h3><div class="current"><p><span class="pill" id="step">1 · ESPERANDO SERIAL</span></p><p><b>Serial:</b> <span id="serial">—</span></p><p><b>MAC:</b> <span id="mac">—</span></p><div class="row"><button class="ok" id="save">💾 Guardar</button><button class="secondary" id="new">↻ Nuevo equipo</button></div></div>
+<label style="display:block;margin-top:12px;font-size:12px;color:#64748b;font-weight:bold">Tipo de código</label><select id="type"><option value="auto">Automático según paso</option><option value="serial">Forzar Serial</option><option value="mac">Forzar MAC</option></select>
+<label style="display:block;margin-top:12px;font-size:12px;color:#64748b;font-weight:bold">Prueba manual</label><div class="row"><input id="manual" placeholder="SN123456 o 00:11:22:33:44:55"><button class="primary" id="add">Agregar</button></div></section>
+<section class="card"><h3>📋 Inventario</h3><div class="row"><button class="primary" id="csv">⬇ CSV</button><button class="primary" id="excel">⬇ Excel</button><button class="danger" id="erase">🗑 Borrar</button></div><input id="search" style="margin-top:9px" placeholder="Buscar serial o MAC"><div class="wrap" style="margin-top:9px"><table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th><th>ESTADO</th><th></th></tr></thead><tbody id="body"></tbody></table></div></section>
 </main><div class="toast" id="toast"></div>
-<script src="https://unpkg.com/html5-qrcode" defer></script>
-<script>
-let db=JSON.parse(localStorage.getItem("iqr11")||"[]"),cur={serial:"",mac:""},qr=null;
-const $=id=>document.getElementById(id);
-function toast(x){$("toast").textContent=x;$("toast").style.display="block";clearTimeout(window.t);window.t=setTimeout(()=>$("toast").style.display="none",2500)}
+<script src="https://unpkg.com/html5-qrcode" defer></script><script>
+let db=JSON.parse(localStorage.getItem("iqr12")||"[]"),cur={serial:"",mac:""},qr=null,torch=false,zoomLevel=1;const $=id=>document.getElementById(id);
+function toast(x){$("toast").textContent=x;$("toast").style.display="block";clearTimeout(window.t);window.t=setTimeout(()=>$("toast").style.display="none",2600)}
 function isMac(x){return /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(x.trim())}
-function addVal(x){x=(x||"").trim();if(!x)return;let t=$("type").value;if(t==="auto")t=isMac(x)?"mac":"serial";if(t==="mac")cur.mac=x.toUpperCase();else cur.serial=x;update();navigator.vibrate?.(100);toast(t==="mac"?"MAC capturada ✓":"Serial capturado ✓")}
-function update(){$("serial").textContent=cur.serial||"—";$("mac").textContent=cur.mac||"—";$("step").textContent=cur.serial&&cur.mac?"3 · LISTO PARA GUARDAR":cur.serial?"2 · ESPERANDO MAC":"1 · ESPERANDO SERIAL"}
-function save(){if(!cur.serial&&!cur.mac)return toast("Captura un código.");if(db.some(x=>(cur.serial&&x.serial===cur.serial)||(cur.mac&&x.mac===cur.mac)))return toast("⚠️ Serial o MAC duplicado.");db.push({serial:cur.serial,mac:cur.mac,date:new Date().toISOString()});localStorage.setItem("iqr11",JSON.stringify(db));cur={serial:"",mac:""};update();render();toast("Equipo guardado ✓")}
-function render(){let q=$("search").value.toLowerCase();let l=db.filter(x=>x.serial.toLowerCase().includes(q)||x.mac.toLowerCase().includes(q));$("body").innerHTML=l.length?l.map((x,i)=>`<tr><td>${db.indexOf(x)+1}</td><td>${x.serial||"—"}</td><td>${x.mac||"—"}</td><td>${x.serial&&x.mac?"COMPLETO":"PENDIENTE"}</td><td><button class="danger" onclick="del(${db.indexOf(x)})">×</button></td></tr>`).join(""):`<tr><td colspan="5" style="text-align:center;padding:25px;color:#64748b">Sin registros</td></tr>`;$("total").textContent=db.length;$("complete").textContent=db.filter(x=>x.serial&&x.mac).length;$("pending").textContent=db.filter(x=>!(x.serial&&x.mac)).length}
-function del(i){db.splice(i,1);localStorage.setItem("iqr11",JSON.stringify(db));render()}
-window.del=del;
-function start(){if(typeof Html5Qrcode==="undefined")return toast("Cargando lector… vuelve a pulsar en unos segundos.");if(qr)return;qr=new Html5Qrcode("reader");qr.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:180}},txt=>{addVal(txt);stop()},()=>{}).catch(e=>{qr=null;toast("No se pudo abrir la cámara. Revisa HTTPS y permisos.")})}
-function stop(){if(!qr)return;qr.stop().then(()=>{qr.clear();qr=null}).catch(()=>{qr=null})}
-function dl(name,type,text){let b=new Blob([text],{type}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
-function esc(x){return '"'+String(x||"").replaceAll('"','""')+'"'}
-$("start").onclick=start;$("stop").onclick=stop;$("save").onclick=save;$("new").onclick=()=>{cur={serial:"",mac:""};update()};$("add").onclick=()=>{addVal($("manual").value);$("manual").value=""};$("search").oninput=render;
-$("csv").onclick=()=>dl("inventario_qr.csv","text/csv;charset=utf-8",[["ID","SERIAL","MAC","ESTADO","FECHA"],...db.map((x,i)=>[i+1,x.serial,x.mac,x.serial&&x.mac?"COMPLETO":"PENDIENTE",x.date])].map(r=>r.map(esc).join(",")).join("\\n"));
+function expected(){return cur.serial?"mac":"serial"}function classify(v){let t=$("type").value;return t==="auto"?expected():t}
+function capture(v){v=(v||"").trim();if(!v)return;let t=classify(v);if($("type").value==="auto"){if(t==="mac"&&!isMac(v))return toast("⚠️ El código no parece una MAC.");if(t==="serial"&&isMac(v))return toast("⚠️ Se detectó una MAC. Ahora se espera el Serial.")}if(t==="mac")cur.mac=v.toUpperCase();else cur.serial=v;update();navigator.vibrate?.(120);toast(t==="mac"?"MAC capturada ✓":"Serial capturado ✓");if(cur.serial&&cur.mac)stop()}
+function update(){ $("serial").textContent=cur.serial||"—";$("mac").textContent=cur.mac||"—";let s=cur.serial&&cur.mac?"3 · LISTO PARA GUARDAR":cur.serial?"2 · BUSCANDO MAC":"1 · BUSCANDO SERIAL";$("step").textContent=s;$("scanLabel").textContent=s.includes("MAC")?"ESCANEAR MAC":"ESCANEAR SERIAL"}
+function save(){if(!cur.serial&&!cur.mac)return toast("Captura un código.");if(db.some(x=>(cur.serial&&x.serial===cur.serial)||(cur.mac&&x.mac===cur.mac)))return toast("⚠️ Serial o MAC duplicado.");db.push({serial:cur.serial,mac:cur.mac,date:new Date().toISOString()});localStorage.setItem("iqr12",JSON.stringify(db));cur={serial:"",mac:""};update();render();toast("Equipo guardado ✓")}
+function render(){let q=$("search").value.toLowerCase(),l=db.filter(x=>x.serial.toLowerCase().includes(q)||x.mac.toLowerCase().includes(q));$("body").innerHTML=l.length?l.map((x)=>`<tr><td>${db.indexOf(x)+1}</td><td>${x.serial||"—"}</td><td>${x.mac||"—"}</td><td>${x.serial&&x.mac?"COMPLETO":"PENDIENTE"}</td><td><button class="danger" onclick="del(${db.indexOf(x)})">×</button></td></tr>`).join(""):`<tr><td colspan="5" style="text-align:center;padding:25px;color:#64748b">Sin registros</td></tr>`;$("total").textContent=db.length;$("complete").textContent=db.filter(x=>x.serial&&x.mac).length;$("pending").textContent=db.filter(x=>!(x.serial&&x.mac)).length}
+function del(i){db.splice(i,1);localStorage.setItem("iqr12",JSON.stringify(db));render()}window.del=del;
+function start(){if(typeof Html5Qrcode==="undefined")return toast("Cargando lector… pulsa de nuevo.");if(qr)return;qr=new Html5Qrcode("reader");qr.start({facingMode:"environment"},{fps:12,qrbox:{width:280,height:170},aspectRatio:.75},txt=>capture(txt),()=>{}).catch(()=>{qr=null;toast("No se pudo abrir la cámara. Verifica HTTPS y permisos.")})}
+function stop(){if(qr){qr.stop().then(()=>{qr.clear();qr=null}).catch(()=>qr=null)}}
+$("start").onclick=start;$("stop").onclick=stop;$("save").onclick=save;$("new").onclick=()=>{cur={serial:"",mac:""};update()};$("add").onclick=()=>{capture($("manual").value);$("manual").value=""};$("search").oninput=render;
+$("light").onclick=async()=>{if(!qr)return toast("Inicia la cámara primero.");try{let tr=document.querySelector("#reader video")?.srcObject?.getVideoTracks?.()[0];torch=!torch;await tr.applyConstraints({advanced:[{torch}]});toast(torch?"Linterna encendida":"Linterna apagada")}catch(e){toast("Linterna no disponible en este dispositivo.")}};
+$("zoom").onclick=async()=>{if(!qr)return toast("Inicia la cámara primero.");try{let tr=document.querySelector("#reader video")?.srcObject?.getVideoTracks?.()[0],c=tr.getCapabilities();if(!c.zoom)return toast("Zoom no disponible.");zoomLevel=zoomLevel===1?2:zoomLevel===2?3:1;let z=zoomLevel===1?c.zoom.min:zoomLevel===2?Math.min(c.zoom.max,c.zoom.min+(c.zoom.max-c.zoom.min)/2):c.zoom.max;await tr.applyConstraints({advanced:[{zoom:z}]});$("zoom").textContent="🔍 Zoom "+zoomLevel+"x"}catch(e){toast("No se pudo cambiar el zoom.")}};
+function esc(x){return '"'+String(x||"").replaceAll('"','""')+'"'}function dl(n,t,s){let b=new Blob([s],{type:t}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
+$("csv").onclick=()=>dl("inventario_qr.csv","text/csv;charset=utf-8",[["ID","SERIAL","MAC","ESTADO","FECHA"],...db.map((x,i)=>[i+1,x.serial,x.mac,x.serial&&x.mac?"COMPLETO":"PENDIENTE",x.date])].map(r=>r.map(esc).join(",")).join("\n"));
 $("excel").onclick=()=>{let r=[["ID","SERIAL","MAC","ESTADO","FECHA"],...db.map((x,i)=>[i+1,x.serial,x.mac,x.serial&&x.mac?"COMPLETO":"PENDIENTE",x.date])];let x='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Inventario"><Table>';r.forEach(a=>x+="<Row>"+a.map(v=>'<Cell><Data ss:Type="String">'+String(v||"").replaceAll("&","&amp;").replaceAll("<","&lt;")+'</Data></Cell>').join("")+"</Row>");x+="</Table></Worksheet></Workbook>";dl("inventario_qr.xls","application/vnd.ms-excel",x)};
-$("erase").onclick=()=>{if(confirm("¿Borrar todo?")){db=[];localStorage.removeItem("iqr11");render()}};render();
-</script>
-</body></html>
+$("erase").onclick=()=>{if(confirm("¿Borrar todo el inventario?")){db=[];localStorage.removeItem("iqr12");render()}};render();update();
+</script></body></html>
