@@ -4,12 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#000">
-<title>Inventario QR 1.2.4</title>
+<title>Inventario QR 1.2.5</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1220;color:#fff}
 header{padding:14px 16px;background:#111827}h1{margin:0;font-size:20px}p{margin:5px 0;font-size:13px;color:#cbd5e1}
 .camera{position:relative;background:#000;overflow:hidden}.camera video{display:block;width:100%;height:auto;min-height:58vh;object-fit:cover;background:#000}
-.overlay{position:absolute;inset:0;pointer-events:none}.target{position:absolute;left:8%;right:8%;top:34%;height:32%;border:2px solid #fff;border-radius:14px;box-shadow:0 0 0 9999px #0002}.target:after{content:"";position:absolute;left:5%;right:5%;top:50%;border-top:2px solid #fff}
+.overlay{position:absolute;inset:0;pointer-events:none}.target{position:absolute;left:8%;top:34%;width:84%;height:32%;border:3px solid #fff;border-radius:14px;box-shadow:0 0 0 9999px #0002;transition:all .12s ease;display:none}
+.target.barcode{border-radius:6px}
+.target.qr{border-radius:16px}
+.target:after{content:"";position:absolute;left:5%;right:5%;top:50%;border-top:2px solid #fff}
 .scanmsg{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:13px;text-shadow:0 1px 5px #000}
 .panel{padding:12px 14px;background:#111827}.status{padding:10px;border-radius:10px;background:#1f2937;font-size:13px}.ok{background:#064e3b}.err{background:#7f1d1d}
 .buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}button{padding:12px;border:0;border-radius:10px;font-weight:bold;font-size:14px}.primary{background:#fff;color:#111827}.secondary{background:#334155;color:#fff}
@@ -20,10 +23,13 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;borde
 </style>
 </head>
 <body>
-<header><h1>📷 Inventario QR — versión estable</h1><p>Fase 1.2.4 · cámara directa + lectura</p></header>
+<header><h1>📷 Inventario QR — recuadro inteligente</h1><p>Fase 1.2.5 · cámara directa + lectura</p></header>
 <div class="camera">
  <video id="video" autoplay playsinline muted></video>
- <div class="overlay"><div class="target"></div><div class="scanmsg">Centra el código dentro del recuadro</div></div>
+ <div class="overlay">
+  <div id="target" class="target"></div>
+  <div id="scanmsg" class="scanmsg">Centra el código dentro del recuadro</div>
+</div>
 </div>
 <div class="panel">
  <div id="status" class="status">La cámara está apagada.</div>
@@ -95,12 +101,62 @@ async function initReader(){
   loop=true;scan();
  }catch(e){console.error(e);msg("⚠️ Cámara activa; el lector de códigos no está disponible en este navegador.","err")}
 }
+
+function showDetectedBox(code){
+ const target=$("target"), video=$("video");
+ if(!code || !video.videoWidth || !video.videoHeight) return;
+
+ let x=0,y=0,w=0,h=0;
+ if(code.boundingBox){
+   x=code.boundingBox.x; y=code.boundingBox.y;
+   w=code.boundingBox.width; h=code.boundingBox.height;
+ } else if(code.cornerPoints && code.cornerPoints.length){
+   const xs=code.cornerPoints.map(p=>p.x), ys=code.cornerPoints.map(p=>p.y);
+   x=Math.min(...xs); y=Math.min(...ys);
+   w=Math.max(...xs)-x; h=Math.max(...ys)-y;
+ } else return;
+
+ // BarcodeDetector coordinates are relative to the actual video frame.
+ const vw=video.videoWidth, vh=video.videoHeight;
+ let left=(x/vw)*100, top=(y/vh)*100, width=(w/vw)*100, height=(h/vh)*100;
+
+ // Give the detected code a little breathing room.
+ const padX=Math.max(1.5, width*0.12), padY=Math.max(2, height*0.18);
+ left-=padX; top-=padY; width+=padX*2; height+=padY*2;
+
+ left=Math.max(1,Math.min(99-width,left));
+ top=Math.max(1,Math.min(99-height,top));
+ width=Math.min(width,98-left); height=Math.min(height,98-top);
+
+ target.style.left=left+"%";
+ target.style.top=top+"%";
+ target.style.width=width+"%";
+ target.style.height=height+"%";
+ target.style.display="block";
+
+ const type=String(code.format||"").toLowerCase();
+ const isQR=type.includes("qr") || type.includes("aztec") || type.includes("data_matrix");
+ target.className="target "+(isQR?"qr":"barcode");
+ $("scanmsg").textContent=isQR ? "▣ QR detectado" : "▥ Código de barras detectado";
+}
+
+function resetDetectedBox(){
+ const target=$("target");
+ target.style.display="none";
+ $("scanmsg").textContent="Centra el código dentro del recuadro";
+}
+
 async function scan(){
  if(!loop||!detector)return;
  try{
   if($("video").readyState>=2){
    const found=await detector.detect($("video"));
-   if(found.length&&found[0].rawValue) process(found[0].rawValue);
+   if(found.length){
+    showDetectedBox(found[0]);
+    if(found[0].rawValue) process(found[0].rawValue);
+   } else {
+    resetDetectedBox();
+   }
   }
  }catch(e){}
  setTimeout(scan,180);
@@ -108,7 +164,8 @@ async function scan(){
 function process(v){
  if(locked)return;locked=true;setTimeout(()=>locked=false,1200);
  v=String(v).trim();if(!v)return;
- $("result").style.display="block";$("result").textContent="Código leído: "+v;
+ $("result").style.display="block";
+ $("result").textContent="Código leído: "+v;
  if(!serial){
   if(mac(v)){msg("Primero escanea el SERIAL.","err");return}
   serial=v;$("step").textContent="2️⃣ Ahora escanea la MAC";msg("✅ SERIAL capturado: "+v+" · enfoca la MAC.","ok");navigator.vibrate?.(100);return
