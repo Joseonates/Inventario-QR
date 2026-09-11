@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#000">
-<title>Inventario QR 1.2.7</title>
+<title>Inventario QR 1.2.8</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1220;color:#fff}
 header{padding:14px 16px;background:#111827}h1{margin:0;font-size:20px}header p{margin:5px 0;font-size:13px;color:#cbd5e1}
@@ -19,18 +19,15 @@ header{padding:14px 16px;background:#111827}h1{margin:0;font-size:20px}header p{
 .card{padding:14px;background:#fff;color:#111827}.row{display:flex;gap:8px}.row button{flex:1}
 table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
 #result{margin-top:10px;padding:10px;border-radius:10px;background:#f1f5f9;color:#111827;display:none}
-.stepbox{padding:10px;border-radius:10px;background:#e2e8f0;margin-bottom:10px}.stepbox b{display:block}.small{font-size:12px;color:#64748b}
+.stepbox{padding:10px;border-radius:10px;background:#e2e8f0;margin-bottom:10px}.small{font-size:12px;color:#64748b}
 </style>
 </head>
 <body>
-<header><h1>📷 Inventario QR — Lectura secuencial</h1><p>Fase 1.2.7 · cámara completa + QR/barras + SERIAL → MAC</p></header>
+<header><h1>📷 Inventario QR — Lector QR mejorado</h1><p>Fase 1.2.8 · cámara directa + QR dedicado + barras</p></header>
 
 <div class="camera">
  <video id="video" autoplay playsinline muted></video>
- <div class="overlay">
-  <div id="target" class="target"></div>
-  <div id="scanmsg" class="scanmsg">Selecciona el tipo de código</div>
- </div>
+ <div class="overlay"><div id="target" class="target"></div><div id="scanmsg" class="scanmsg">Selecciona el tipo de código</div></div>
 </div>
 
 <div class="panel">
@@ -42,7 +39,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;borde
 
  <div class="stepbox">
   <b id="stepTitle">1. PRIMERA LECTURA → SERIAL</b>
-  <span id="stepText" class="small">El primer código que detectemos se guardará como SERIAL.</span>
+  <span id="stepText" class="small">El primer código detectado siempre será SERIAL.</span>
  </div>
 
  <div id="status" class="status">Pulsa “Encender cámara”.</div>
@@ -54,31 +51,22 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;borde
   <button id="torch" class="secondary" disabled>🔦 Linterna</button>
   <button id="flip" class="secondary">🔄 Cambiar cámara</button>
  </div>
-
  <div class="controls">
-  <label>🔍 Zoom</label>
-  <input id="zoom" type="range" min="1" max="1" step="0.1" value="1" disabled>
+  <label>🔍 Zoom</label><input id="zoom" type="range" min="1" max="1" step="0.1" value="1" disabled>
  </div>
 </div>
 
 <div class="card">
  <b>Inventario</b>
- <div class="row">
-  <button id="manual" class="secondary">Entrada manual</button>
-  <button id="clear" class="secondary">Borrar</button>
- </div>
- <div style="margin-top:10px;overflow:auto">
-  <table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th></tr></thead><tbody id="tbody"></tbody></table>
- </div>
+ <div class="row"><button id="manual" class="secondary">Entrada manual</button><button id="clear" class="secondary">Borrar</button></div>
+ <div style="margin-top:10px;overflow:auto"><table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th></tr></thead><tbody id="tbody"></tbody></table></div>
 </div>
 
-<!-- jsQR se usa específicamente para hacer la lectura QR sobre la imagen de la cámara. -->
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
 <script>
-let stream=null,track=null,facing="environment",serial=null,locked=false,loop=false;
-let mode="qr", barcodeDetector=null, qrCanvas=null, qrCtx=null;
-let items=JSON.parse(localStorage.getItem("iqr127")||"[]");
+let stream=null,track=null,facing="environment",serial=null,locked=false,loop=false,barcodeDetector=null;
+let mode="qr", qrBusy=false;
+let items=JSON.parse(localStorage.getItem("iqr128")||"[]");
 const $=id=>document.getElementById(id);
 
 function status(t,c=""){ $("status").textContent=t;$("status").className="status "+c }
@@ -86,49 +74,33 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
 function render(){$("tbody").innerHTML=items.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.s)}</td><td>${esc(x.m)}</td></tr>`).join("")}
 
 function setMode(m){
- mode=m;
- $("qrMode").classList.toggle("active",m==="qr");
- $("barMode").classList.toggle("active",m==="barcode");
- resetBox();
- if(m==="qr"){
-  $("scanmsg").textContent="Modo QR: apunta al QR que quieres leer";
-  status(stream?"🔎 Buscando solamente QR...":"Modo QR seleccionado.");
- }else{
-  $("scanmsg").textContent="Modo barras: apunta al código de barras";
-  status(stream?"🔎 Buscando solamente códigos de barras...":"Modo código de barras seleccionado.");
- }
- if(stream) initReader();
+ mode=m; $("qrMode").classList.toggle("active",m==="qr"); $("barMode").classList.toggle("active",m==="barcode"); resetBox();
+ $("scanmsg").textContent=m==="qr"?"Modo QR: apunta al QR que quieres leer":"Modo barras: apunta al código de barras";
+ if(stream)initReader();else status(m==="qr"?"Modo QR seleccionado.":"Modo código de barras seleccionado.");
 }
 
 async function stopCamera(){
- loop=false;
- if(stream) stream.getTracks().forEach(t=>t.stop());
- stream=null;track=null;$("video").srcObject=null;$("torch").disabled=true;$("zoom").disabled=true;
- resetBox();
+ loop=false; qrBusy=false;
+ if(stream)stream.getTracks().forEach(t=>t.stop());
+ stream=null;track=null;$("video").srcObject=null;$("torch").disabled=true;$("zoom").disabled=true;resetBox();
 }
 
 async function startCamera(){
  try{
   await stopCamera();
-  if(!window.isSecureContext){status("❌ Abre la aplicación mediante HTTPS.","err");return}
+  if(!window.isSecureContext){status("❌ Abre esta aplicación mediante HTTPS.","err");return}
   if(!navigator.mediaDevices?.getUserMedia){status("❌ Este navegador no permite acceso a cámara.","err");return}
   status("📷 Encendiendo cámara...");
   stream=await navigator.mediaDevices.getUserMedia({
    audio:false,
    video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:60}}
   });
-  $("video").srcObject=stream;
-  await $("video").play();
-  track=stream.getVideoTracks()[0];
-
+  $("video").srcObject=stream;await $("video").play();track=stream.getVideoTracks()[0];
   const caps=track.getCapabilities?track.getCapabilities():{};
-  if(caps.zoom){
-   const z=$("zoom");z.min=caps.zoom.min;z.max=caps.zoom.max;z.step=caps.zoom.step||0.1;z.value=caps.zoom.min;z.disabled=false;
-  }
+  if(caps.zoom){let z=$("zoom");z.min=caps.zoom.min;z.max=caps.zoom.max;z.step=caps.zoom.step||0.1;z.value=caps.zoom.min;z.disabled=false}
   if(caps.torch)$("torch").disabled=false;
   try{await track.applyConstraints({advanced:[{focusMode:"continuous"}]})}catch(e){}
-
-  status("✅ Cámara activa · "+(mode==="qr"?"modo QR":"modo código de barras"),"ok");
+  status("✅ Cámara activa · "+(mode==="qr"?"lector QR dedicado":"lector de barras"),"ok");
   initReader();
  }catch(e){
   console.error(e);await stopCamera();
@@ -142,28 +114,18 @@ async function startCamera(){
 async function initReader(){
  loop=false;
  if(mode==="qr"){
-  // QR: jsQR funciona sobre los fotogramas de nuestra cámara directa.
-  if(typeof jsQR!=="function"){
-   status("⚠️ No se cargó el motor QR. Revisa conexión a Internet y recarga.","err");return;
-  }
-  qrCanvas=qrCanvas||document.createElement("canvas");
-  qrCtx=qrCanvas.getContext("2d",{willReadFrequently:true});
-  loop=true;
+  if(typeof QrScanner==="undefined"){status("⚠️ No se cargó el motor QR. Recarga con Internet.","err");return}
   status("🔎 Buscando exclusivamente QR...");
-  scan();
+  loop=true;scan();
  }else{
-  if(!("BarcodeDetector" in window)){
-   status("⚠️ Este navegador no ofrece BarcodeDetector para barras. Usa Chrome/Samsung Internet actualizado.","err");return;
-  }
+  if(!("BarcodeDetector" in window)){status("⚠️ Este navegador no ofrece lector de barras. Usa Chrome o Samsung Internet actualizado.","err");return}
   try{
    const supported=await BarcodeDetector.getSupportedFormats();
    const wanted=["code_128","code_39","code_93","ean_13","ean_8","upc_a","upc_e","itf","codabar"];
    const formats=wanted.filter(x=>supported.includes(x));
    if(!formats.length){status("⚠️ Este navegador no expone formatos de barras compatibles.","err");return}
-   barcodeDetector=new BarcodeDetector({formats});
-   loop=true;
+   barcodeDetector=new BarcodeDetector({formats});loop=true;scan();
    status("🔎 Buscando exclusivamente códigos de barras...");
-   scan();
   }catch(e){console.error(e);status("⚠️ No fue posible iniciar el lector de barras.","err")}
  }
 }
@@ -174,99 +136,62 @@ async function scan(){
   const video=$("video");
   if(video.readyState>=2){
    if(mode==="qr"){
-    // Reducimos la imagen para que el análisis sea rápido sin afectar la cámara ni su enfoque.
-    const maxW=960;
-    const scale=Math.min(1,maxW/video.videoWidth);
-    qrCanvas.width=Math.max(320,Math.round(video.videoWidth*scale));
-    qrCanvas.height=Math.max(240,Math.round(video.videoHeight*scale));
-    qrCtx.drawImage(video,0,0,qrCanvas.width,qrCanvas.height);
-    const image=qrCtx.getImageData(0,0,qrCanvas.width,qrCanvas.height);
-    const code=jsQR(image.data,image.width,image.height,{inversionAttempts:"attemptBoth"});
-    if(code){
-     showQRBox(code);
-     if(code.data) process(code.data,"QR");
-    }else resetBox();
+    // qr-scanner analiza directamente el video/captura sin depender de BarcodeDetector.
+    if(!qrBusy){
+     qrBusy=true;
+     try{
+      const r=await QrScanner.scanImage(video,{returnDetailedScanResult:true,highlightScanRegion:false,highlightCodeOutline:false});
+      if(r){
+       showQRBox(r);
+       if(r.data)process(r.data,"QR");
+      }else resetBox();
+     }catch(e){resetBox()}
+     qrBusy=false;
+    }
    }else{
     const found=await barcodeDetector.detect(video);
-    if(found.length){
-     showBarcodeBox(found[0]);
-     if(found[0].rawValue) process(found[0].rawValue,"BARRAS");
-    }else resetBox();
+    if(found.length){showBarcodeBox(found[0]);if(found[0].rawValue)process(found[0].rawValue,"BARRAS")}
+    else resetBox();
    }
   }
  }catch(e){}
- setTimeout(scan,mode==="qr"?120:180);
+ if(loop)setTimeout(scan,mode==="qr"?80:160);
 }
 
-function showQRBox(code){
- const target=$("target"),video=$("video");
- const loc=code.location;
- if(!loc||!video.videoWidth)return;
- const xs=[loc.topLeftCorner.x,loc.topRightCorner.x,loc.bottomRightCorner.x,loc.bottomLeftCorner.x];
- const ys=[loc.topLeftCorner.y,loc.topRightCorner.y,loc.bottomRightCorner.y,loc.bottomLeftCorner.y];
- const x=Math.min(...xs),y=Math.min(...ys),w=Math.max(...xs)-x,h=Math.max(...ys)-y;
- placeBox(x,y,w,h,qrCanvas.width,qrCanvas.height,"qr");
+function showQRBox(r){
+ const loc=r.cornerPoints||r.cornerPoints;
+ if(!loc||loc.length<4)return;
+ const xs=loc.map(p=>p.x),ys=loc.map(p=>p.y);
+ placeBox(Math.min(...xs),Math.min(...ys),Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys),$("video").videoWidth,$("video").videoHeight,"qr");
  $("scanmsg").textContent="▣ QR detectado";
 }
-
 function showBarcodeBox(code){
- const b=code.boundingBox,video=$("video");
- if(!b)return;
- placeBox(b.x,b.y,b.width,b.height,video.videoWidth,video.videoHeight,"barcode");
+ const b=code.boundingBox;if(!b)return;
+ placeBox(b.x,b.y,b.width,b.height,$("video").videoWidth,$("video").videoHeight,"barcode");
  $("scanmsg").textContent="▥ Código de barras detectado";
 }
-
 function placeBox(x,y,w,h,vw,vh,type){
- const target=$("target");
- let l=x/vw*100,t=y/vh*100,ww=w/vw*100,hh=h/vh*100;
+ const target=$("target");let l=x/vw*100,t=y/vh*100,ww=w/vw*100,hh=h/vh*100;
  const px=Math.max(1.5,ww*.12),py=Math.max(2,hh*.18);
- l=Math.max(1,Math.min(99-ww,l-px));t=Math.max(1,Math.min(99-hh,t-py));
- ww=Math.min(98-l,ww+px*2);hh=Math.min(98-t,hh+py*2);
- target.style.left=l+"%";target.style.top=t+"%";target.style.width=ww+"%";target.style.height=hh+"%";target.style.display="block";
- target.className="target "+type;
+ l=Math.max(1,Math.min(99-ww,l-px));t=Math.max(1,Math.min(99-hh,t-py));ww=Math.min(98-l,ww+px*2);hh=Math.min(98-t,hh+py*2);
+ target.style.left=l+"%";target.style.top=t+"%";target.style.width=ww+"%";target.style.height=hh+"%";target.style.display="block";target.className="target "+type;
 }
-
-function resetBox(){
- $("target").style.display="none";
- $("scanmsg").textContent=mode==="qr"?"Modo QR: apunta al QR que quieres leer":"Modo barras: apunta al código de barras";
-}
+function resetBox(){$("target").style.display="none";$("scanmsg").textContent=mode==="qr"?"Modo QR: apunta al QR que quieres leer":"Modo barras: apunta al código de barras"}
 
 function process(value,type){
- if(locked)return;
- locked=true;setTimeout(()=>locked=false,1300);
+ if(locked)return;locked=true;setTimeout(()=>locked=false,1300);
  value=String(value||"").trim();if(!value)return;
-
- $("result").style.display="block";
- $("result").textContent=(type==="QR"?"QR leído: ":"Código de barras leído: ")+value;
-
- // IMPORTANTE: no intentamos decidir si el dato parece SERIAL o MAC.
- // La primera lectura SIEMPRE es SERIAL; la segunda SIEMPRE es MAC.
+ $("result").style.display="block";$("result").textContent=(type==="QR"?"QR leído: ":"Código de barras leído: ")+value;
+ // No se intenta identificar el contenido.
  if(serial===null){
-  serial=value;
-  $("stepTitle").textContent="2. SEGUNDA LECTURA → MAC";
-  $("stepText").textContent="El siguiente código que detectemos se guardará como MAC.";
-  status("✅ SERIAL capturado. Ahora lee la MAC.","ok");
-  navigator.vibrate?.(100);
-  return;
+  serial=value;$("stepTitle").textContent="2. SEGUNDA LECTURA → MAC";$("stepText").textContent="El siguiente código detectado siempre será MAC";status("✅ SERIAL capturado. Ahora lee la MAC.","ok");navigator.vibrate?.(100);return;
  }
-
- const macValue=value;
- if(items.some(x=>x.s===serial||x.m===macValue)){
-  status("⚠️ SERIAL o MAC ya existe en el inventario.","err");
-  serial=null;
-  $("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";
-  $("stepText").textContent="El primer código que detectemos se guardará como SERIAL.";
-  return;
+ if(items.some(x=>x.s===serial||x.m===value)){
+  status("⚠️ SERIAL o MAC ya existe en el inventario.","err");serial=null;$("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";$("stepText").textContent="El primer código detectado siempre será SERIAL";return;
  }
-
- items.push({s:serial,m:macValue});
- localStorage.setItem("iqr127",JSON.stringify(items));
- serial=null;
- $("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";
- $("stepText").textContent="El primer código que detectemos se guardará como SERIAL.";
- status("✅ SERIAL + MAC registrados.","ok");
- navigator.vibrate?.([100,60,100]);
- render();
+ items.push({s:serial,m:value});localStorage.setItem("iqr128",JSON.stringify(items));serial=null;
+ $("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";$("stepText").textContent="El primer código detectado siempre será SERIAL";
+ status("✅ SERIAL + MAC registrados.","ok");navigator.vibrate?.([100,60,100]);render();
 }
 
 $("qrMode").onclick=()=>setMode("qr");
@@ -274,10 +199,10 @@ $("barMode").onclick=()=>setMode("barcode");
 $("start").onclick=startCamera;
 $("stop").onclick=()=>{stopCamera();status("Cámara apagada.")};
 $("flip").onclick=()=>{facing=facing==="environment"?"user":"environment";startCamera()};
-$("torch").onclick=async()=>{if(!track)return;try{const s=track.getSettings();await track.applyConstraints({advanced:[{torch:!s.torch}]})}catch(e){status("El navegador no permite controlar la linterna.","err")}};
+$("torch").onclick=async()=>{if(!track)return;try{let s=track.getSettings();await track.applyConstraints({advanced:[{torch:!s.torch}]})}catch(e){status("El navegador no permite controlar la linterna.","err")}};
 $("zoom").oninput=e=>track?.applyConstraints({advanced:[{zoom:Number(e.target.value)}]}).catch(()=>{});
-$("manual").onclick=()=>{const v=prompt("Escribe el primer código (SERIAL) o el segundo código (MAC), según el paso actual");if(v)process(v,"MANUAL")};
-$("clear").onclick=()=>{if(confirm("¿Borrar inventario?")){items=[];serial=null;localStorage.setItem("iqr127","[]");$("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";$("stepText").textContent="El primer código que detectemos se guardará como SERIAL.";render()}};
+$("manual").onclick=()=>{let v=prompt("Código de la lectura actual");if(v)process(v,"MANUAL")};
+$("clear").onclick=()=>{if(confirm("¿Borrar inventario?")){items=[];serial=null;localStorage.setItem("iqr128","[]");$("stepTitle").textContent="1. PRIMERA LECTURA → SERIAL";$("stepText").textContent="El primer código detectado siempre será SERIAL";render()}};
 render();
 </script>
 </body>
