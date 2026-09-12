@@ -127,6 +127,17 @@ button,input,textarea,select{font:inherit;color:inherit}
   padding:2px 9px;font-family:var(--fd);font-weight:700;font-size:11px;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
 #hl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .camera.hit .reticle i{border-color:rgba(255,255,255,.35)}
+.camera.live{cursor:crosshair}
+.focusring{position:absolute;width:74px;height:74px;margin:-37px 0 0 -37px;border:2px solid #FFE8A3;border-radius:12px;pointer-events:none;opacity:0}
+.focusring.go{animation:focusPop .9s ease-out forwards}
+@keyframes focusPop{0%{opacity:0;transform:scale(1.45)}18%{opacity:1;transform:scale(1)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.94)}}
+@media (prefers-reduced-motion:reduce){.focusring.go{animation:none;opacity:1}}
+.zoomrow{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:9px 13px;box-shadow:var(--shadow)}
+.zoomrow span{font-family:var(--fd);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.zoomrow input[type=range]{flex:1;accent-color:var(--serial);min-width:0}
+.zoomrow b{font-family:var(--fm);font-size:13px;font-weight:600;min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
+.tiphint{margin:0;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.tiphint svg{width:15px;height:15px;flex:0 0 auto}
 @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.camstate .pulse{animation:none}}
 .camoff{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;color:#C7D3D0;gap:10px}
@@ -283,8 +294,20 @@ td.txt{font-family:var(--fb);color:var(--muted)}
         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#8FA5A0" stroke-width="1.6" stroke-linecap="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
         <p id="camoffMsg">Enciende la cámara para empezar a escanear.</p>
       </div>
+      <span class="focusring" id="focusRing" hidden></span>
       <div class="camstate" id="camstate" hidden><span class="pulse"></span><span id="camstateMsg">Buscando código…</span><span class="fmt" id="fmtChip" hidden></span></div>
     </div>
+
+    <div class="zoomrow" id="zoomRow" hidden>
+      <span>Zoom</span>
+      <input type="range" id="zoom" min="1" max="4" step="0.1" value="1" aria-label="Acercar la cámara">
+      <b id="zoomVal">1.0×</b>
+    </div>
+
+    <p class="tiphint" id="focusHint" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+      Toca la imagen sobre el código para enfocar ahí.
+    </p>
 
     <div class="controls">
       <button class="btn primary grow" id="btnCam">
@@ -331,6 +354,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
       <label><input type="checkbox" id="optAuto"> Pasar al otro campo tras escanear</label>
       <label><input type="checkbox" id="optFmt" checked> Formatear MAC con dos puntos</label>
       <label><input type="checkbox" id="optSound" checked> Sonido y vibración</label>
+      <label><input type="checkbox" id="optCompat"> Modo compatibilidad (otro lector)</label>
     </div>
   </section>
 
@@ -374,6 +398,11 @@ td.txt{font-family:var(--fb);color:var(--muted)}
           <tbody id="prev"></tbody>
         </table>
       </div>
+    </div>
+
+    <div class="card">
+      <h3>Diagnóstico del escáner</h3>
+      <p class="hint" id="diag">Enciende la cámara en la pestaña Escanear para ver qué lector está usando tu celular.</p>
     </div>
 
     <div class="card">
@@ -590,6 +619,7 @@ function initCloud(){
 var stream = null, detector = null, rafId = null, fbScanner = null;
 var devices = [], devIndex = 0, torchOn = false, running = false;
 var lastCode = "", lastAt = 0;
+var motor = "", soportados = null;
 
 var FORMATS = ["qr_code","code_128","code_39","code_93","codabar","ean_13","ean_8",
                "upc_a","upc_e","itf","data_matrix","pdf417","aztec"];
@@ -743,46 +773,183 @@ function onDetected(raw, formato){
   }
 }
 
-function startNative(){
-  var constraints = { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } };
-  if(devices.length > 1 && devices[devIndex]) constraints = { video: { deviceId: { exact: devices[devIndex].deviceId }, width:{ideal:1280}, height:{ideal:720} } };
-  return navigator.mediaDevices.getUserMedia(constraints).then(function(s){
-    stream = s;
-    var v = $("video");
-    v.srcObject = s;
-    v.setAttribute("playsinline","true");
-    return v.play().catch(function(){});
-  }).then(function(){
-    return navigator.mediaDevices.enumerateDevices().then(function(list){
-      devices = list.filter(function(d){ return d.kind === "videoinput"; });
-      $("btnFlip").hidden = devices.length < 2;
-    }).catch(function(){});
-  }).then(function(){
-    var track = stream.getVideoTracks()[0];
-    var caps = track.getCapabilities ? track.getCapabilities() : {};
-    $("btnTorch").hidden = !(caps && "torch" in caps);
-    detector = new window.BarcodeDetector({ formats: FORMATS });
-    running = true;
-    setCamUI(true, "Buscando código…");
-    loopNative();
+/* --- control de la cámara: enfoque continuo, toque para enfocar y zoom --- */
+function track0(){ try{ return stream ? stream.getVideoTracks()[0] : null; }catch(e){ return null; } }
+function caps0(){
+  var t = track0();
+  try{ return (t && t.getCapabilities) ? (t.getCapabilities() || {}) : {}; }catch(e){ return {}; }
+}
+function tieneModo(lista, modo){ return !!(lista && lista.indexOf && lista.indexOf(modo) >= 0); }
+
+function aplicarEnfoqueContinuo(){
+  var t = track0(), c = caps0(), adv = [];
+  if(!t || !t.applyConstraints) return;
+  if(tieneModo(c.focusMode, "continuous")) adv.push({ focusMode: "continuous" });
+  if(tieneModo(c.exposureMode, "continuous")) adv.push({ exposureMode: "continuous" });
+  if(tieneModo(c.whiteBalanceMode, "continuous")) adv.push({ whiteBalanceMode: "continuous" });
+  if(adv.length) t.applyConstraints({ advanced: adv }).catch(function(){});
+}
+
+function configurarZoom(){
+  var c = caps0(), t = track0(), wrap = $("zoomRow"), sl = $("zoom");
+  if(!t || !c.zoom || !(c.zoom.max > c.zoom.min)){ wrap.hidden = true; return; }
+  wrap.hidden = false;
+  sl.min = c.zoom.min;
+  sl.max = c.zoom.max;
+  sl.step = c.zoom.step || 0.1;
+  var cur = c.zoom.min;
+  try{ cur = (t.getSettings && t.getSettings().zoom) || c.zoom.min; }catch(e){}
+  sl.value = cur;
+  $("zoomVal").textContent = Number(cur).toFixed(1) + "×";
+}
+function aplicarZoom(v){
+  var t = track0();
+  $("zoomVal").textContent = Number(v).toFixed(1) + "×";
+  if(t && t.applyConstraints) t.applyConstraints({ advanced: [{ zoom: Number(v) }] }).catch(function(){});
+}
+
+function enfocarEn(ev){
+  if(!running) return;
+  var cam = $("cam"), r = cam.getBoundingClientRect();
+  var px = ev.clientX - r.left, py = ev.clientY - r.top;
+
+  var ring = $("focusRing");
+  ring.style.left = px + "px";
+  ring.style.top = py + "px";
+  ring.hidden = false;
+  ring.classList.remove("go");
+  void ring.offsetWidth;
+  ring.classList.add("go");
+
+  var t = track0(), c = caps0();
+  if(!t || !t.applyConstraints) return;
+  var v = $("video"), vw = v.videoWidth || r.width, vh = v.videoHeight || r.height;
+  var s = Math.max(r.width / vw, r.height / vh);
+  var ox = (r.width - vw * s) / 2, oy = (r.height - vh * s) / 2;
+  var nx = Math.min(1, Math.max(0, (px - ox) / (vw * s)));
+  var ny = Math.min(1, Math.max(0, (py - oy) / (vh * s)));
+
+  var adv = [];
+  if(c.pointsOfInterest) adv.push({ pointsOfInterest: [{ x: nx, y: ny }] });
+  if(tieneModo(c.focusMode, "single-shot")) adv.push({ focusMode: "single-shot" });
+  else if(tieneModo(c.focusMode, "manual") && c.focusDistance) adv.push({ focusMode: "continuous" });
+  if(!adv.length) return;
+  t.applyConstraints({ advanced: adv }).then(function(){
+    setTimeout(aplicarEnfoqueContinuo, 1500);
+  }).catch(function(){});
+}
+
+/* --- creación del lector nativo (solo con los formatos que el celular soporta) --- */
+function crearDetector(){
+  if(typeof window.BarcodeDetector !== "function") return Promise.reject(new Error("sin BarcodeDetector"));
+  var sup = window.BarcodeDetector.getSupportedFormats
+    ? window.BarcodeDetector.getSupportedFormats()
+    : Promise.resolve(null);
+  return Promise.resolve(sup).then(function(list){
+    soportados = list || null;
+    if(list && list.length === 0) throw new Error("sin formatos soportados");
+    var use = list && list.length ? FORMATS.filter(function(f){ return list.indexOf(f) >= 0; }) : null;
+    if(list && list.length && list.indexOf("qr_code") >= 0 && use.indexOf("qr_code") < 0) use.push("qr_code");
+    try{
+      return (use && use.length) ? new window.BarcodeDetector({ formats: use }) : new window.BarcodeDetector();
+    }catch(e){
+      return new window.BarcodeDetector();
+    }
   });
 }
 
+function startNative(){
+  var video = { facingMode: { ideal: "environment" },
+                width: { ideal: 1920 }, height: { ideal: 1080 },
+                frameRate: { ideal: 30 } };
+  if(devices.length > 1 && devices[devIndex]) video = { deviceId: { exact: devices[devIndex].deviceId },
+                width: { ideal: 1920 }, height: { ideal: 1080 } };
+  return navigator.mediaDevices.getUserMedia({ video: video, audio: false })
+    .catch(function(){ return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } }); })
+    .then(function(s){
+      stream = s;
+      var v = $("video");
+      v.srcObject = s;
+      v.setAttribute("playsinline", "true");
+      return v.play().catch(function(){});
+    }).then(function(){
+      return navigator.mediaDevices.enumerateDevices().then(function(list){
+        devices = list.filter(function(d){ return d.kind === "videoinput"; });
+        $("btnFlip").hidden = devices.length < 2;
+      }).catch(function(){});
+    }).then(function(){
+      var c = caps0();
+      $("btnTorch").hidden = !c.torch;
+      aplicarEnfoqueContinuo();
+      configurarZoom();
+      return crearDetector();
+    }).then(function(d){
+      detector = d;
+      motor = "nativo";
+      running = true;
+      fallos = 0; aciertos = 0; abiertaEn = perfNow(); pistaDada = false;
+      setCamUI(true, idleMsg());
+      $("focusHint").hidden = false;
+      $("cam").classList.add("live");
+      pintarDiagnostico();
+      loopNative();
+    });
+}
+
 var busy = false, lastDetectAt = 0, lastHitAt = 0, msgHoldUntil = 0;
+var fallos = 0, aciertos = 0, abiertaEn = 0, pistaDada = false, pasada = 0, sinRecorte = false;
+var lienzo = null, lienzoCtx = null;
 
 function perfNow(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
 function idleMsg(){ return "Apunta al código " + (target === "mac" ? "de la MAC" : "del serial") + "…"; }
+
+/* Alterna entre leer el cuadro completo y un recorte ampliado del centro:
+   así también encuentra códigos pequeños o lejanos. */
+function detectarCuadro(v){
+  pasada++;
+  if(sinRecorte || pasada % 2 === 1 || !v.videoWidth){
+    return detector.detect(v).then(function(res){ return { res: res, sx: 0, sy: 0, k: 1 }; });
+  }
+  var vw = v.videoWidth, vh = v.videoHeight, k = 1.6;
+  var cw = Math.round(vw * 0.55), ch = Math.round(vh * 0.55);
+  var sx = Math.round((vw - cw) / 2), sy = Math.round((vh - ch) / 2);
+  if(!lienzo){ lienzo = document.createElement("canvas"); }
+  var dw = Math.round(cw * k), dh = Math.round(ch * k);
+  if(lienzo.width !== dw || lienzo.height !== dh){ lienzo.width = dw; lienzo.height = dh; lienzoCtx = null; }
+  if(!lienzoCtx) lienzoCtx = lienzo.getContext("2d", { willReadFrequently: true });
+  lienzoCtx.drawImage(v, sx, sy, cw, ch, 0, 0, dw, dh);
+  return detector.detect(lienzo).then(function(res){
+    return { res: res, sx: sx, sy: sy, k: k };
+  }, function(){
+    // este navegador no lee desde lienzo: seguimos solo con el cuadro completo
+    sinRecorte = true;
+    return { res: [], sx: 0, sy: 0, k: 1 };
+  });
+}
+
+function remapear(res, sx, sy, k){
+  if(k === 1 && !sx && !sy) return res;
+  return res.map(function(r){
+    var cp = (r.cornerPoints || []).map(function(p){ return { x: sx + p.x / k, y: sy + p.y / k }; });
+    var bb = r.boundingBox ? { x: sx + r.boundingBox.x / k, y: sy + r.boundingBox.y / k,
+                               width: r.boundingBox.width / k, height: r.boundingBox.height / k } : null;
+    return { rawValue: r.rawValue, format: r.format, cornerPoints: cp, boundingBox: bb };
+  });
+}
 
 function loopNative(){
   if(!running) return;
   var v = $("video");
   var now = perfNow();
-  if(!busy && detector && v.readyState >= 2 && now - lastDetectAt > 80){
+  if(!busy && detector && v.readyState >= 2 && now - lastDetectAt > 70){
     busy = true; lastDetectAt = now;
-    detector.detect(v).then(function(res){
+    detectarCuadro(v).then(function(out){
       busy = false;
       if(!running) return;
+      fallos = 0;
+      var res = out.res && out.res.length ? remapear(out.res, out.sx, out.sy, out.k) : null;
       if(res && res.length){
+        aciertos++;
         lastHitAt = now;
         drawHighlights(res);
         setFmtChip(res[0].format);
@@ -792,9 +959,32 @@ function loopNative(){
         setFmtChip(null);
         if(now > msgHoldUntil) $("camstateMsg").textContent = idleMsg();
       }
-    }).catch(function(){ busy = false; });
+      if(!pistaDada && !aciertos && now - abiertaEn > 14000){
+        pistaDada = true;
+        toast("¿No lee el código? Acércate a unos 15 cm, toca la pantalla para enfocar, o activa «Modo compatibilidad» abajo.");
+      }
+    }).catch(function(){
+      busy = false;
+      fallos++;
+      if(fallos > 6 && motor === "nativo"){
+        fallos = 0;
+        toast("Cambiando al lector de compatibilidad…");
+        cambiarARespaldo();
+      }
+    });
   }
   rafId = requestAnimationFrame(loopNative);
+}
+
+function cambiarARespaldo(){
+  if(rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  running = false; busy = false; detector = null;
+  stopTracks();
+  startFallback().catch(function(){
+    setCamUI(false);
+    $("camoffMsg").textContent = "No se pudo iniciar el lector. Escribe los códigos abajo mientras tanto.";
+  });
 }
 
 function loadScript(src){
@@ -816,9 +1006,13 @@ function startFallback(){
       fmts = [E.QR_CODE,E.CODE_128,E.CODE_39,E.CODE_93,E.CODABAR,E.EAN_13,E.EAN_8,
               E.UPC_A,E.UPC_E,E.ITF,E.DATA_MATRIX,E.PDF_417,E.AZTEC];
     }catch(e){}
-    fbScanner = new H("fallbackReader", fmts ? { formatsToSupport: fmts, verbose:false } : undefined);
+    fbScanner = new H("fallbackReader", fmts
+      ? { formatsToSupport: fmts, verbose: false, useBarCodeDetectorIfSupported: false }
+      : undefined);
     return fbScanner.start({ facingMode: "environment" },
-      { fps: 12, qrbox: undefined, aspectRatio: 1.333 },
+      { fps: 10, qrbox: undefined, aspectRatio: 1.333, disableFlip: false,
+        videoConstraints: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 },
+                            advanced: [{ focusMode: "continuous" }] } },
       function(text, result){
         var f = "";
         try{ f = (result && result.result && result.result.format && result.result.format.formatName) || ""; }catch(e){}
@@ -828,7 +1022,13 @@ function startFallback(){
       function(){}
     ).then(function(){
       running = true;
-      setCamUI(true, "Buscando código…");
+      motor = "respaldo";
+      abiertaEn = perfNow(); aciertos = 0; pistaDada = false;
+      setCamUI(true, idleMsg());
+      $("zoomRow").hidden = true;
+      $("focusHint").hidden = true;
+      $("cam").classList.remove("live");
+      pintarDiagnostico();
     });
   };
   if(window.Html5Qrcode) return go();
@@ -838,7 +1038,8 @@ function startFallback(){
 function startCamera(){
   if(running) return;
   $("camoffMsg").textContent = "Abriendo la cámara…";
-  var hasNative = typeof window.BarcodeDetector === "function";
+  var compat = $("optCompat").checked;
+  var hasNative = !compat && typeof window.BarcodeDetector === "function";
   var attempt = hasNative ? startNative() : Promise.reject(new Error("sin BarcodeDetector"));
   attempt.catch(function(){
     stopTracks();
@@ -876,8 +1077,33 @@ function stopCamera(){
   $("video").hidden = false;
   $("fallbackReader").hidden = true;
   $("btnTorch").hidden = true;
+  $("zoomRow").hidden = true;
+  $("focusHint").hidden = true;
+  $("focusRing").hidden = true;
+  $("cam").classList.remove("live");
   setCamUI(false);
   $("camoffMsg").textContent = "Cámara apagada. Enciéndela para seguir escaneando.";
+  pintarDiagnostico();
+}
+
+function pintarDiagnostico(){
+  var partes = [];
+  partes.push("Lector: " + (motor === "nativo" ? "el del propio Android (rápido, con recuadro en vivo)"
+              : motor === "respaldo" ? "librería de compatibilidad (sin recuadro en vivo)"
+              : "sin iniciar"));
+  if(typeof window.BarcodeDetector !== "function"){
+    partes.push("Este navegador no trae lector de códigos propio; la app usa la librería de compatibilidad.");
+  } else if(soportados){
+    partes.push("Formatos que reconoce este celular: " + (soportados.length ? soportados.join(", ") : "ninguno"));
+    if(soportados.indexOf("qr_code") < 0) partes.push("Atención: este celular no reporta soporte de QR en el lector nativo. Activa «Modo compatibilidad».");
+  }
+  var v = $("video");
+  if(v && v.videoWidth) partes.push("Cámara: " + v.videoWidth + "×" + v.videoHeight + " px");
+  var c = caps0();
+  if(c && c.focusMode) partes.push("Enfoque disponible: " + [].concat(c.focusMode).join(", "));
+  if(c && c.zoom) partes.push("Zoom: " + c.zoom.min + "× a " + c.zoom.max + "×");
+  if(c && c.torch) partes.push("Linterna: disponible");
+  $("diag").textContent = partes.join(" · ");
 }
 
 /* ------------------------------------------------------------------ *
@@ -1447,6 +1673,8 @@ function wire(){
     running = false;
     startCamera();
   };
+  $("zoom").addEventListener("input", function(){ aplicarZoom($("zoom").value); });
+  $("cam").addEventListener("click", function(e){ if(running && motor === "nativo") enfocarEn(e); });
 
   document.querySelectorAll(".field").forEach(function(el){
     el.addEventListener("click", function(e){
@@ -1501,10 +1729,14 @@ function wire(){
   $("scrim").addEventListener("click", function(e){ if(e.target === $("scrim")){ editingId = null; closeSheet(); } });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && !$("scrim").hidden){ editingId = null; closeSheet(); } });
 
-  ["optAuto","optFmt","optSound"].forEach(function(id){
+  ["optAuto","optFmt","optSound","optCompat"].forEach(function(id){
     $(id).addEventListener("change", function(){
-      optWrite({ auto: $("optAuto").checked, fmt: $("optFmt").checked, sound: $("optSound").checked });
+      optWrite({ auto: $("optAuto").checked, fmt: $("optFmt").checked,
+                 sound: $("optSound").checked, compat: $("optCompat").checked });
     });
+  });
+  $("optCompat").addEventListener("change", function(){
+    if(running){ stopCamera(); setTimeout(startCamera, 350); }
   });
 }
 
@@ -1513,6 +1745,7 @@ function boot(){
   if(typeof o.auto === "boolean") $("optAuto").checked = o.auto;
   if(typeof o.fmt === "boolean") $("optFmt").checked = o.fmt;
   if(typeof o.sound === "boolean") $("optSound").checked = o.sound;
+  if(typeof o.compat === "boolean") $("optCompat").checked = o.compat;
 
   records = lsRead();
   wire();
@@ -1524,6 +1757,7 @@ function boot(){
   }catch(e){}
   initCloud();
   initPwa();
+  pintarDiagnostico();
   setInterval(pushPending, 20000);
   window.addEventListener("online", pushPending);
 }
