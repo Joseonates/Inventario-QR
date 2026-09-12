@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>Inventario QR - Fase 1</title>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--text:#0f172a;--muted:#64748b;--primary:#2563eb;--danger:#dc2626;--ok:#16a34a;--border:#e2e8f0}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+header{background:#0f172a;color:white;padding:16px 18px;position:sticky;top:0;z-index:10}
+header h1{margin:0;font-size:21px} header small{opacity:.75}
+main{max-width:1050px;margin:auto;padding:16px}.grid{display:grid;grid-template-columns:360px 1fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 4px 16px #00000008}
+h2{font-size:17px;margin:0 0 12px}.row{display:flex;gap:8px;flex-wrap:wrap}
+button,input,select{font:inherit}button{border:0;border-radius:10px;padding:11px 13px;cursor:pointer;font-weight:700}
+.primary{background:var(--primary);color:white}.secondary{background:#e2e8f0;color:#0f172a}.danger{background:#fee2e2;color:#991b1b}.ok{background:#dcfce7;color:#166534}
+button:disabled{opacity:.5;cursor:not-allowed}
+label{font-size:12px;color:var(--muted);font-weight:700;display:block;margin:9px 0 5px}
+input,select{width:100%;padding:11px;border:1px solid var(--border);border-radius:9px;background:white}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.stat div{background:#f8fafc;border-radius:10px;padding:10px;text-align:center}.stat b{display:block;font-size:20px}.stat span{font-size:11px;color:var(--muted)}
+#reader{width:100%;background:#0b1220;border-radius:12px;overflow:hidden;min-height:260px;display:flex;align-items:center;justify-content:center;color:#cbd5e1}
+#video{width:100%;display:none;max-height:330px;object-fit:cover}.hint{font-size:12px;color:var(--muted);line-height:1.45}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--border);vertical-align:top}th{color:var(--muted);font-size:11px}
+.tablewrap{overflow:auto;max-height:500px}.empty{text-align:center;color:var(--muted);padding:30px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#0f172a;color:white;padding:12px 16px;border-radius:10px;display:none;z-index:30;max-width:90%}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:20;padding:16px}.modalbox{background:white;border-radius:16px;padding:18px;max-width:430px;width:100%}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.stat{grid-template-columns:repeat(3,1fr)}main{padding:10px}}
+</style>
+</head>
+<body>
+<header><h1>📦 Inventario QR</h1><small>Fase 1 · Serial + MAC + exportación</small></header>
+<main>
+<div class="stat">
+  <div><b id="total">0</b><span>EQUIPOS</span></div>
+  <div><b id="complete">0</b><span>COMPLETOS</span></div>
+  <div><b id="pending">0</b><span>PENDIENTES</span></div>
+</div>
+<div class="grid">
+<section class="card">
+<h2>📷 Escáner</h2>
+<div id="reader"><span id="readerMsg">Pulsa "Iniciar cámara" para escanear.</span><video id="video" playsinline></video></div>
+<div class="row" style="margin-top:10px">
+<button class="primary" id="startBtn">▶ Iniciar cámara</button>
+<button class="secondary" id="stopBtn" disabled>■ Detener</button>
+</div>
+<p class="hint">Puedes escanear QR y códigos de barras. La app intenta reconocer automáticamente si el dato es SERIAL o MAC.</p>
+
+<label>Tipo de dato (si quieres forzarlo)</label>
+<select id="forcedType">
+<option value="auto">Automático</option><option value="serial">Serial</option><option value="mac">MAC</option>
+</select>
+<label>Entrada manual / prueba</label>
+<div class="row"><input id="manual" placeholder="Ej. SN123456 o 00:11:22:33:44:55" style="flex:1"><button class="primary" id="addManual">Agregar</button></div>
+
+<div id="current" style="margin-top:15px;padding:12px;background:#f8fafc;border-radius:12px">
+  <span class="badge">NUEVO EQUIPO</span>
+  <p style="margin:9px 0 4px"><b>Serial:</b> <span id="curSerial">—</span></p>
+  <p style="margin:4px 0"><b>MAC:</b> <span id="curMac">—</span></p>
+  <div class="row" style="margin-top:10px"><button class="ok" id="saveCurrent">💾 Guardar equipo</button><button class="secondary" id="clearCurrent">Limpiar</button></div>
+</div>
+</section>
+
+<section class="card">
+<h2>📋 Inventario</h2>
+<div class="row" style="margin-bottom:10px">
+<button class="primary" id="exportXlsx">⬇ Excel</button>
+<button class="secondary" id="exportCsv">⬇ CSV</button>
+<button class="danger" id="clearAll">🗑 Borrar todo</button>
+</div>
+<input id="search" placeholder="Buscar por serial o MAC...">
+<div class="tablewrap" style="margin-top:10px">
+<table><thead><tr><th>#</th><th>SERIAL</th><th>MAC</th><th>ESTADO</th><th>ACCIONES</th></tr></thead>
+<tbody id="tbody"></tbody></table>
+</div>
+<p class="hint">Los datos de esta Fase 1 se almacenan localmente en el celular/computador mediante el almacenamiento del navegador.</p>
+</section>
+</div>
+</main>
+<div class="toast" id="toast"></div>
+<div class="modal" id="modal"><div class="modalbox"><h2>⚠️ Atención</h2><p id="modalText"></p><div class="row" style="justify-content:flex-end"><button class="secondary" id="modalCancel">Cancelar</button><button class="danger" id="modalOk">Continuar</button></div></div></div>
+
+<script>
+const KEY='inventarioQR_F1_v1';
+let inventory=JSON.parse(localStorage.getItem(KEY)||'[]');
+let current={serial:'',mac:''};
+let stream=null, scanning=false, detector=null, raf=null;
+
+const $=id=>document.getElementById(id);
+function saveDB(){localStorage.setItem(KEY,JSON.stringify(inventory)); render();}
+function toast(t){$('toast').textContent=t;$('toast').style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>$('toast').style.display='none',2600)}
+function normalize(s){return String(s||'').trim()}
+function isMac(s){return /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/.test(normalize(s))}
+function classify(s){
+  const forced=$('forcedType').value;
+  if(forced!=='auto') return forced;
+  return isMac(s)?'mac':'serial';
+}
+function addValue(value){
+  value=normalize(value); if(!value){return}
+  const type=classify(value);
+  if(type==='mac') current.mac=value.toUpperCase(); else current.serial=value;
+  $('curSerial').textContent=current.serial||'—'; $('curMac').textContent=current.mac||'—';
+  toast(type==='mac'?'MAC capturada ✓':'Serial capturado ✓');
+}
+function saveCurrent(){
+  if(!current.serial && !current.mac){toast('Primero captura un Serial o MAC.');return}
+  const dup=inventory.find(x=>(current.serial&&x.serial===current.serial)||(current.mac&&x.mac===current.mac));
+  if(dup){toast('⚠️ Ese Serial o MAC ya existe en el inventario.');return}
+  inventory.push({id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(),serial:current.serial,mac:current.mac,created:new Date().toISOString()});
+  current={serial:'',mac:''}; $('curSerial').textContent='—';$('curMac').textContent='—'; saveDB(); toast('Equipo guardado ✓');
+}
+function clearCurrent(){current={serial:'',mac:''};$('curSerial').textContent='—';$('curMac').textContent='—'}
+function render(){
+ const q=normalize($('search').value).toLowerCase();
+ const list=inventory.filter(x=>!q||x.serial.toLowerCase().includes(q)||x.mac.toLowerCase().includes(q));
+ $('tbody').innerHTML=list.length?list.map((x,i)=>`<tr><td>${inventory.indexOf(x)+1}</td><td>${x.serial||'—'}</td><td>${x.mac||'—'}</td><td>${x.serial&&x.mac?'<span class="badge" style="background:#dcfce7;color:#166534">COMPLETO</span>':'<span class="badge" style="background:#fef3c7;color:#92400e">PENDIENTE</span>'}</td><td><button class="danger" style="padding:6px 8px" onclick="removeItem('${x.id}')">Eliminar</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">No hay registros.</td></tr>';
+ $('total').textContent=inventory.length;$('complete').textContent=inventory.filter(x=>x.serial&&x.mac).length;$('pending').textContent=inventory.filter(x=>!(x.serial&&x.mac)).length;
+}
+function removeItem(id){inventory=inventory.filter(x=>x.id!==id);saveDB();toast('Registro eliminado.')}
+window.removeItem=removeItem;
+
+async function startCamera(){
+ if(!navigator.mediaDevices?.getUserMedia){toast('Este navegador no permite acceder a la cámara.');return}
+ try{
+   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+   $('video').srcObject=stream;$('video').style.display='block';$('readerMsg').style.display='none';await $('video').play();
+   scanning=true;$('startBtn').disabled=true;$('stopBtn').disabled=false;
+   if('BarcodeDetector' in window){
+     try{detector=new BarcodeDetector({formats:['qr_code','code_128','code_39','ean_13','ean_8','upc_a','upc_e']});}
+     catch(e){detector=null}
+   }
+   scanLoop();
+ }catch(e){toast('No se pudo abrir la cámara. Revisa permisos y usa HTTPS o localhost.')}
+}
+async function scanLoop(){
+ if(!scanning)return;
+ try{
+   if(detector){
+     const codes=await detector.detect($('video'));
+     if(codes.length){addValue(codes[0].rawValue); stopCamera(); return;}
+   } else {
+     // Fallback: BarcodeDetector no disponible. Avisamos sin cargar librerías externas.
+     $('readerMsg').style.display='block';$('readerMsg').textContent='Tu navegador no tiene detector nativo. Usa Entrada manual en esta versión.';
+   }
+ }catch(e){}
+ raf=requestAnimationFrame(scanLoop);
+}
+function stopCamera(){scanning=false;if(raf)cancelAnimationFrame(raf);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;$('video').style.display='none';$('readerMsg').style.display='block';$('readerMsg').textContent='Pulsa "Iniciar cámara" para escanear.';$('startBtn').disabled=false;$('stopBtn').disabled=true}
+
+function csvEscape(v){return '"'+String(v??'').replaceAll('"','""')+'"'}
+function exportCSV(){
+ const rows=[['ID','SERIAL','MAC','ESTADO','FECHA'],...inventory.map((x,i)=>[i+1,x.serial,x.mac,x.serial&&x.mac?'COMPLETO':'PENDIENTE',new Date(x.created).toLocaleString()])];
+ const blob=new Blob([rows.map(r=>r.map(csvEscape).join(',')).join('\\n')],{type:'text/csv;charset=utf-8'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='inventario_qr.csv';a.click();URL.revokeObjectURL(a.href);toast('CSV generado ✓');
+}
+function exportXLSX(){
+ // Excel-compatible XML Spreadsheet; opens directly in Excel without external libraries.
+ let xml=`<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Inventario"><Table>`;
+ const rows=[['ID','SERIAL','MAC','ESTADO','FECHA'],...inventory.map((x,i)=>[i+1,x.serial,x.mac,x.serial&&x.mac?'COMPLETO':'PENDIENTE',new Date(x.created).toLocaleString()])];
+ rows.forEach((r,ri)=>{xml+='<Row>'+r.map(v=>`<Cell><Data ss:Type="${typeof v==='number'?'Number':'String'}">${String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}</Data></Cell>`).join('')+'</Row>'});xml+='</Table></Worksheet></Workbook>';
+ const blob=new Blob([xml],{type:'application/vnd.ms-excel'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='inventario_qr.xls';a.click();URL.revokeObjectURL(a.href);toast('Archivo Excel generado ✓');
+}
+function confirmBox(text,ok){$('modalText').textContent=text;$('modal').style.display='flex';$('modalOk').onclick=()=>{$('modal').style.display='none';ok()};$('modalCancel').onclick=()=>$('modal').style.display='none'}
+
+$('startBtn').onclick=startCamera;$('stopBtn').onclick=stopCamera;$('addManual').onclick=()=>{addValue($('manual').value);$('manual').value=''};$('saveCurrent').onclick=saveCurrent;$('clearCurrent').onclick=clearCurrent;$('search').oninput=render;$('exportCSV').onclick=exportCSV;$('exportXlsx').onclick=exportXLSX;
+$('clearAll').onclick=()=>confirmBox('Se eliminarán todos los equipos guardados en este navegador. Esta acción no se puede deshacer.',()=>{inventory=[];saveDB();toast('Inventario borrado.')});
+render();
+</script>
+</body></html>
