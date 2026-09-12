@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Serial y MAC">
+<meta name="theme-color" content="#0A6E68" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1513" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Escanea QR y codigos de barras para asociar el serial y la MAC de cada equipo y exportar el inventario a Excel.">
+<style>
+:root{color-scheme:light dark}
+html,body{margin:0}
+body{font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<title>Escáner Serial y MAC</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F1F3EF; --surface:#FFFFFF; --surface-2:#F7F8F5; --line:#DCE2D9;
+  --ink:#14201D; --muted:#5C6B66;
+  --serial:#0A6E68; --serial-soft:#DCEFEC;
+  --mac:#95520F; --mac-soft:#F6E7D3;
+  --danger:#A82520; --danger-soft:#F7E1E0;
+  --ok:#2C6B33;
+  --radius:14px;
+  --fd:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --fb:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --fm:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --shadow:0 1px 2px rgba(20,32,29,.06), 0 6px 18px -12px rgba(20,32,29,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1513; --surface:#161F1C; --surface-2:#1C2623; --line:#2B3835;
+    --ink:#E6ECE9; --muted:#93A39D;
+    --serial:#4FC2B8; --serial-soft:#12332F;
+    --mac:#E5A351; --mac-soft:#372716;
+    --danger:#F0857E; --danger-soft:#3A1D1B;
+    --ok:#7BC17F;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -14px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1513; --surface:#161F1C; --surface-2:#1C2623; --line:#2B3835;
+  --ink:#E6ECE9; --muted:#93A39D;
+  --serial:#4FC2B8; --serial-soft:#12332F;
+  --mac:#E5A351; --mac-soft:#372716;
+  --danger:#F0857E; --danger-soft:#3A1D1B;
+  --ok:#7BC17F;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -14px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--fb);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--serial);outline-offset:2px}
+.shell{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 40px}
+
+/* ---------- header ---------- */
+.topbar{display:flex;align-items:center;gap:12px;padding-block:16px 12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{width:34px;height:34px;border-radius:9px;background:var(--serial);display:grid;place-items:center;flex:0 0 auto}
+.mark svg{width:20px;height:20px}
+.brand h1{font-family:var(--fd);font-weight:700;font-size:25px;letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:1}
+.brand p{margin:2px 0 0;font-size:11.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-family:var(--fd);font-weight:600}
+.counter{margin-left:auto;text-align:right;flex:0 0 auto}
+.counter b{display:block;font-family:var(--fm);font-weight:600;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
+.counter span{font-family:var(--fd);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* ---------- tabs ---------- */
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--surface-2);border:1px solid var(--line);padding:4px;border-radius:12px;margin-bottom:18px}
+.tabs button{background:none;border:0;border-radius:9px;padding:9px 6px;font-family:var(--fd);font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+.view{display:flex;flex-direction:column;gap:16px}
+.view[hidden]{display:none}
+
+/* ---------- camera ---------- */
+.camera{position:relative;background:#0B100F;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);aspect-ratio:4/3;max-height:44vh}
+.camera video{width:100%;height:100%;object-fit:cover;display:block}
+#fallbackReader{position:absolute;inset:0}
+#fallbackReader video{width:100%!important;height:100%!important;object-fit:cover}
+.reticle{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center}
+.reticle i{display:block;width:66%;max-width:260px;aspect-ratio:1.25;border-radius:10px;box-shadow:0 0 0 2000px rgba(6,12,11,.42);border:2px solid rgba(255,255,255,.85)}
+.camera.idle .reticle i{display:none}
+.camstate{position:absolute;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(transparent,rgba(6,12,11,.8));color:#EAF2F0;font-size:12.5px;display:flex;align-items:center;gap:8px}
+.camstate .pulse{width:8px;height:8px;border-radius:50%;background:#7BE0D4;flex:0 0 auto;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.camstate .pulse{animation:none}}
+.camoff{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;color:#C7D3D0;gap:10px}
+.camoff p{margin:0;font-size:13px;max-width:34ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:11px;padding:11px 14px;font-weight:500;font-size:14px;cursor:pointer;box-shadow:var(--shadow)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.btn svg{width:17px;height:17px;flex:0 0 auto}
+.btn.primary{background:var(--serial);border-color:var(--serial);color:#FFF}
+:root[data-theme="dark"] .btn.primary,:root:not([data-theme="light"]) .btn.primary{color:#07201E}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .btn.primary{color:#FFF}}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+.btn.grow{flex:1 1 140px}
+.btn.big{padding:15px 16px;font-size:15.5px;font-weight:600}
+
+/* ---------- capture fields ---------- */
+.fields{display:grid;gap:10px}
+@media(min-width:560px){.fields{grid-template-columns:1fr 1fr}}
+.field{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:var(--radius);padding:12px 13px;box-shadow:var(--shadow);cursor:pointer}
+.field[data-k="serial"]{border-left-color:var(--serial)}
+.field[data-k="mac"]{border-left-color:var(--mac)}
+.field.active{border-color:var(--serial);box-shadow:0 0 0 3px var(--serial-soft),var(--shadow)}
+.field[data-k="mac"].active{border-color:var(--mac);box-shadow:0 0 0 3px var(--mac-soft),var(--shadow)}
+.field.active[data-k="serial"]{border-left-color:var(--serial)}
+.fhead{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.tag{font-family:var(--fd);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
+.field[data-k="serial"] .tag{color:var(--serial)}
+.field[data-k="mac"] .tag{color:var(--mac)}
+.aim{margin-left:auto;font-family:var(--fd);font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;color:var(--muted);display:none;align-items:center;gap:5px}
+.field.active .aim{display:flex}
+.aim b{width:7px;height:7px;border-radius:50%;background:var(--serial);display:block}
+.field[data-k="mac"] .aim b{background:var(--mac)}
+.field input{width:100%;border:0;background:transparent;font-family:var(--fm);font-size:17px;font-weight:500;letter-spacing:.01em;padding:2px 0}
+.field input::placeholder{color:var(--muted);font-family:var(--fb);font-size:14px;font-weight:400;letter-spacing:0}
+.note{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:12px;min-height:17px}
+.note.warn{color:var(--mac)}
+.note.dup{color:var(--danger)}
+.note.ok{color:var(--ok)}
+
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.obs{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 13px;box-shadow:var(--shadow)}
+.obs label{font-family:var(--fd);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
+.obs input{width:100%;border:0;background:transparent;font-size:15px}
+
+.opts{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);padding:2px 2px 0}
+.opts label{display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.opts input{accent-color:var(--serial);width:16px;height:16px}
+
+/* ---------- inventory ---------- */
+.search{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px;box-shadow:var(--shadow)}
+.search input{flex:1;border:0;background:transparent}
+.search svg{width:17px;height:17px;color:var(--muted);flex:0 0 auto}
+.list{display:flex;flex-direction:column;gap:9px}
+.rec{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 13px;display:grid;grid-template-columns:1fr auto;gap:4px 12px;box-shadow:var(--shadow)}
+.rec .pair{display:flex;align-items:baseline;gap:9px;min-width:0}
+.rec .k{font-family:var(--fd);font-weight:700;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;flex:0 0 48px}
+.rec .k.s{color:var(--serial)} .rec .k.m{color:var(--mac)}
+.rec .v{font-family:var(--fm);font-size:15px;word-break:break-all}
+.rec .v.empty{color:var(--muted);font-family:var(--fb);font-size:13.5px;font-style:italic}
+.rec .meta{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:11.5px;margin-top:5px;padding-top:8px;border-top:1px solid var(--line)}
+.rec .acts{grid-column:2;grid-row:1/3;display:flex;gap:6px;align-items:flex-start;justify-content:flex-end}
+.iconbtn{border:1px solid var(--line);background:var(--surface-2);border-radius:9px;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.iconbtn svg{width:16px;height:16px}
+.iconbtn.del:hover{color:var(--danger);border-color:var(--danger)}
+.empty-state{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:22px 18px;text-align:center}
+.empty-state h3{font-family:var(--fd);text-transform:uppercase;letter-spacing:.06em;font-size:18px;margin:0 0 6px}
+.empty-state p{margin:0 auto 16px;color:var(--muted);font-size:13.5px;max-width:40ch}
+.demo{text-align:left;opacity:.62;pointer-events:none;filter:saturate(.6)}
+.demo-cap{font-family:var(--fd);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;text-align:left;font-weight:600}
+
+/* ---------- export ---------- */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
+.stat b{display:block;font-family:var(--fm);font-weight:600;font-size:23px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-family:var(--fd);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stat.alert b{color:var(--danger)}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-family:var(--fd);font-weight:700;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);font-family:var(--fm);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.s{color:var(--serial)} td.m{color:var(--mac)}
+td.txt{font-family:var(--fb);color:var(--muted)}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.card h3{font-family:var(--fd);text-transform:uppercase;letter-spacing:.07em;font-size:16px;margin:0 0 4px}
+
+/* ---------- modal + toast ---------- */
+.scrim{position:fixed;inset:0;background:rgba(8,16,14,.55);display:grid;place-items:center;padding:18px;z-index:50}
+.scrim[hidden]{display:none}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;width:100%;max-width:420px;box-shadow:0 24px 60px -20px rgba(0,0,0,.5)}
+.sheet h3{font-family:var(--fd);text-transform:uppercase;letter-spacing:.06em;font-size:19px;margin:0 0 3px}
+.sheet p{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+.sheet .f{margin-bottom:11px}
+.sheet .f label{font-family:var(--fd);font-weight:700;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px}
+.sheet .f input{width:100%;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:10px 11px;font-family:var(--fm);font-size:15px}
+.sheet .f.plain input{font-family:var(--fb)}
+.sheet .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--ground);padding:11px 17px;border-radius:11px;font-size:13.5px;z-index:60;box-shadow:0 14px 30px -12px rgba(0,0,0,.6);max-width:90vw;text-align:center}
+#toast[hidden]{display:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M7 12h10"/></svg>
+      </span>
+      <div>
+        <h1>Serial y MAC</h1>
+        <p>Inventario por escaneo</p>
+      </div>
+    </div>
+    <div class="counter"><b id="cCount">0</b><span>equipos</span></div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="scan">Escanear</button>
+    <button role="tab" aria-selected="false" data-tab="inv">Inventario</button>
+    <button role="tab" aria-selected="false" data-tab="exp">Exportar</button>
+  </nav>
+
+  <!-- ============ ESCANEAR ============ -->
+  <section class="view" id="v-scan">
+    <div class="camera idle" id="cam">
+      <video id="video" playsinline muted autoplay></video>
+      <div id="fallbackReader" hidden></div>
+      <div class="reticle"><i></i></div>
+      <div class="camoff" id="camoff">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#8FA5A0" stroke-width="1.6" stroke-linecap="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <p id="camoffMsg">Enciende la cámara para empezar a escanear.</p>
+      </div>
+      <div class="camstate" id="camstate" hidden><span class="pulse"></span><span id="camstateMsg">Buscando código…</span></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn primary grow" id="btnCam">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span id="btnCamLabel">Encender cámara</span>
+      </button>
+      <button class="btn" id="btnTorch" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Linterna
+      </button>
+      <button class="btn" id="btnFlip" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 2v6h-6M3 22v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L21 8M21 15a9 9 0 0 1-14.9 3.4L3 16"/></svg>
+        Cambiar
+      </button>
+    </div>
+
+    <div class="fields">
+      <div class="field active" data-k="serial">
+        <div class="fhead"><span class="tag">Serial</span><span class="aim"><b></b>Recibe el escaneo</span></div>
+        <input id="inSerial" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Escanea o escribe el serial">
+        <div class="note" id="nSerial"></div>
+      </div>
+      <div class="field" data-k="mac">
+        <div class="fhead"><span class="tag">MAC</span><span class="aim"><b></b>Recibe el escaneo</span></div>
+        <input id="inMac" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Escanea o escribe la MAC">
+        <div class="note" id="nMac"></div>
+      </div>
+    </div>
+
+    <div class="obs">
+      <label for="inNota">Observación (opcional)</label>
+      <input id="inNota" autocomplete="off" placeholder="Ubicación, responsable, estado…">
+    </div>
+
+    <div class="row">
+      <button class="btn primary big grow" id="btnSave">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+        Guardar equipo
+      </button>
+      <button class="btn ghost big" id="btnClear">Limpiar</button>
+    </div>
+
+    <div class="opts">
+      <label><input type="checkbox" id="optAuto"> Pasar al otro campo tras escanear</label>
+      <label><input type="checkbox" id="optFmt" checked> Formatear MAC con dos puntos</label>
+      <label><input type="checkbox" id="optSound" checked> Sonido y vibración</label>
+    </div>
+  </section>
+
+  <!-- ============ INVENTARIO ============ -->
+  <section class="view" id="v-inv" hidden>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="q" placeholder="Buscar por serial, MAC u observación" autocomplete="off">
+      <span id="qCount" class="hint"></span>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <!-- ============ EXPORTAR ============ -->
+  <section class="view" id="v-exp" hidden>
+    <div class="stats">
+      <div class="stat"><b id="sTotal">0</b><span>Equipos</span></div>
+      <div class="stat"><b id="sFull">0</b><span>Con serial y MAC</span></div>
+      <div class="stat" id="sDupWrap"><b id="sDup">0</b><span>Duplicados</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Descargar el archivo</h3>
+      <p class="hint">El serial queda en la primera columna y la MAC en la segunda, una al frente de la otra.</p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary grow" id="btnXlsx">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+          Excel (.xlsx)
+        </button>
+        <button class="btn grow" id="btnCsv">CSV</button>
+        <button class="btn grow" id="btnCopy">Copiar tabla</button>
+      </div>
+      <p class="hint" style="margin-top:10px">«Copiar tabla» pega directo en Google Sheets o Excel con las columnas ya separadas.</p>
+    </div>
+
+    <div>
+      <p class="demo-cap">Vista previa</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>#</th><th>Serial</th><th>MAC</th><th>Observación</th><th>Fecha</th></tr></thead>
+          <tbody id="prev"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Datos guardados</h3>
+      <p class="hint" id="syncMsg">Revisando almacenamiento…</p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn danger" id="btnWipe">Borrar todo el inventario</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim" hidden><div class="sheet" id="sheet"></div></div>
+<div id="toast" hidden role="status"></div>
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Estado y almacenamiento
+ * ------------------------------------------------------------------ */
+var LS_KEY = "inv_serial_mac_v1";
+var LS_OPT = "inv_serial_mac_opts_v1";
+var records = [];          // {id, serial, mac, nota, createdAt, updatedAt, deleted?}
+var db = null;             // capacidad de nube, si existe
+var pending = {};          // id -> true, esperando subir
+var target = "serial";
+var editingId = null;
+
+function uid(){
+  return "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+function nowIso(){ return new Date().toISOString(); }
+
+function lsRead(){
+  try{
+    var raw = localStorage.getItem(LS_KEY);
+    if(!raw) return [];
+    var v = JSON.parse(raw);
+    return Array.isArray(v) ? v : [];
+  }catch(e){ return []; }
+}
+function lsWrite(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(records)); }catch(e){}
+}
+function optRead(){
+  try{ return JSON.parse(localStorage.getItem(LS_OPT) || "{}") || {}; }catch(e){ return {}; }
+}
+function optWrite(o){
+  try{ localStorage.setItem(LS_OPT, JSON.stringify(o)); }catch(e){}
+}
+
+function live(){ return records.filter(function(r){ return !r.deleted; }); }
+
+/* ------------------------------------------------------------------ *
+ * Utilidades
+ * ------------------------------------------------------------------ */
+var $ = function(id){ return document.getElementById(id); };
+
+function esc(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+function fechaCorta(iso){
+  var d = new Date(iso);
+  if(isNaN(d)) return "";
+  var p = function(n){ return n < 10 ? "0" + n : "" + n; };
+  return p(d.getDate()) + "/" + p(d.getMonth()+1) + "/" + d.getFullYear();
+}
+function horaCorta(iso){
+  var d = new Date(iso);
+  if(isNaN(d)) return "";
+  var p = function(n){ return n < 10 ? "0" + n : "" + n; };
+  return p(d.getHours()) + ":" + p(d.getMinutes());
+}
+function cleanCode(s){
+  return String(s || "").replace(/[\u0000-\u001F\u007F]/g, "").trim();
+}
+function macDigits(s){
+  var t = String(s || "").replace(/[^0-9a-fA-F]/g, "");
+  return t.length === 12 ? t.toUpperCase() : null;
+}
+function looksMac(s){ return macDigits(s) !== null; }
+function fmtMac(s){
+  var d = macDigits(s);
+  if(!d) return String(s || "").trim();
+  return d.match(/.{2}/g).join(":");
+}
+function macKey(s){
+  var d = macDigits(s);
+  return d ? d : String(s || "").trim().toUpperCase();
+}
+
+var toastTimer = null;
+function toast(msg){
+  var t = $("toast");
+  t.textContent = msg;
+  t.hidden = false;
+  $("live").textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.hidden = true; }, 2600);
+}
+
+/* ------------------------------------------------------------------ *
+ * Sonido y vibración
+ * ------------------------------------------------------------------ */
+var actx = null;
+function beep(ok){
+  if(!$("optSound").checked) return;
+  try{
+    if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if(actx.state === "suspended") actx.resume();
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = "square";
+    o.frequency.value = ok ? 1180 : 420;
+    g.gain.setValueAtTime(0.0001, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.13, actx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + (ok ? 0.11 : 0.22));
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + (ok ? 0.12 : 0.24));
+  }catch(e){}
+  try{ if(navigator.vibrate) navigator.vibrate(ok ? 45 : [60,50,60]); }catch(e){}
+}
+
+/* ------------------------------------------------------------------ *
+ * Nube (opcional): sincroniza entre dispositivos, sin bloquear la app
+ * ------------------------------------------------------------------ */
+function mergeRemote(remote){
+  var byId = {};
+  records.forEach(function(r){ byId[r.id] = r; });
+  var changed = false;
+  remote.forEach(function(rr){
+    if(!rr || !rr.id) return;
+    var local = byId[rr.id];
+    if(!local){ records.push(rr); byId[rr.id] = rr; changed = true; }
+    else if((rr.updatedAt || "") > (local.updatedAt || "")){
+      for(var k in rr) local[k] = rr[k];
+      changed = true;
+    }
+  });
+  if(changed){ lsWrite(); renderAll(); }
+}
+
+function pushOne(r){
+  if(!db) { pending[r.id] = true; return; }
+  try{
+    db.doc("equipos/" + r.id).set(r).then(function(){
+      delete pending[r.id];
+    }, function(){ pending[r.id] = true; });
+  }catch(e){ pending[r.id] = true; }
+}
+function pushPending(){
+  if(!db) return;
+  Object.keys(pending).forEach(function(id){
+    var r = records.filter(function(x){ return x.id === id; })[0];
+    if(r) pushOne(r); else delete pending[id];
+  });
+}
+
+function initCloud(){
+  var msg = $("syncMsg");
+  if(!(window.claude && typeof window.claude.use === "function")){
+    msg.textContent = "Guardado en este dispositivo (funciona sin internet). Exporta a Excel para tener respaldo.";
+    return;
+  }
+  window.claude.use("db").then(function(cap){
+    if(!cap){
+      msg.textContent = "Guardado en este dispositivo (funciona sin internet). Exporta a Excel para tener respaldo.";
+      return;
+    }
+    db = cap;
+    msg.textContent = "Guardado en este dispositivo y respaldado en la nube. Se sincroniza solo cuando hay internet.";
+    try{
+      db.collection("equipos").get().then(function(res){
+        var docs = (res && res.docs ? res.docs : res) || [];
+        var arr = docs.map(function(d){ return d.data ? d.data() : d; }).filter(Boolean);
+        mergeRemote(arr);
+        // subir lo que la nube no tiene o tiene viejo
+        var remoteById = {};
+        arr.forEach(function(r){ if(r && r.id) remoteById[r.id] = r; });
+        records.forEach(function(r){
+          var rr = remoteById[r.id];
+          if(!rr || (r.updatedAt || "") > (rr.updatedAt || "")) pushOne(r);
+        });
+        try{
+          db.collection("equipos").onSnapshot(function(snap){
+            var d2 = (snap && snap.docs ? snap.docs : snap) || [];
+            mergeRemote(d2.map(function(d){ return d.data ? d.data() : d; }).filter(Boolean));
+          });
+        }catch(e){}
+      }, function(){ pushPending(); });
+    }catch(e){}
+  }, function(){});
+}
+
+/* ------------------------------------------------------------------ *
+ * Escáner: BarcodeDetector nativo, con html5-qrcode de respaldo
+ * ------------------------------------------------------------------ */
+var stream = null, detector = null, rafId = null, fbScanner = null;
+var devices = [], devIndex = 0, torchOn = false, running = false;
+var lastCode = "", lastAt = 0;
+
+var FORMATS = ["qr_code","code_128","code_39","code_93","codabar","ean_13","ean_8",
+               "upc_a","upc_e","itf","data_matrix","pdf417","aztec"];
+
+function setCamUI(on, msg){
+  $("cam").classList.toggle("idle", !on);
+  $("camoff").hidden = on;
+  $("camstate").hidden = !on;
+  $("btnCamLabel").textContent = on ? "Detener cámara" : "Encender cámara";
+  $("btnCam").classList.toggle("primary", !on);
+  if(msg) $("camstateMsg").textContent = msg;
+}
+
+function onDetected(raw){
+  var code = cleanCode(raw);
+  if(!code) return;
+  var t = Date.now();
+  if(code === lastCode && t - lastAt < 1800) return;
+  lastCode = code; lastAt = t;
+
+  var field = target;
+  var value = code;
+  if(field === "mac" && $("optFmt").checked) value = fmtMac(value);
+  $(field === "mac" ? "inMac" : "inSerial").value = value;
+  beep(true);
+  $("camstateMsg").textContent = (field === "mac" ? "MAC" : "Serial") + " capturado: " + value;
+  checkField("serial"); checkField("mac");
+
+  if($("optAuto").checked){
+    var other = field === "serial" ? "mac" : "serial";
+    if(!$(other === "mac" ? "inMac" : "inSerial").value) setTarget(other);
+  }
+}
+
+function startNative(){
+  var constraints = { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } };
+  if(devices.length > 1 && devices[devIndex]) constraints = { video: { deviceId: { exact: devices[devIndex].deviceId }, width:{ideal:1280}, height:{ideal:720} } };
+  return navigator.mediaDevices.getUserMedia(constraints).then(function(s){
+    stream = s;
+    var v = $("video");
+    v.srcObject = s;
+    v.setAttribute("playsinline","true");
+    return v.play().catch(function(){});
+  }).then(function(){
+    return navigator.mediaDevices.enumerateDevices().then(function(list){
+      devices = list.filter(function(d){ return d.kind === "videoinput"; });
+      $("btnFlip").hidden = devices.length < 2;
+    }).catch(function(){});
+  }).then(function(){
+    var track = stream.getVideoTracks()[0];
+    var caps = track.getCapabilities ? track.getCapabilities() : {};
+    $("btnTorch").hidden = !(caps && "torch" in caps);
+    detector = new window.BarcodeDetector({ formats: FORMATS });
+    running = true;
+    setCamUI(true, "Buscando código…");
+    loopNative();
+  });
+}
+
+function loopNative(){
+  if(!running) return;
+  var v = $("video");
+  if(v.readyState >= 2 && detector){
+    detector.detect(v).then(function(res){
+      if(res && res.length) onDetected(res[0].rawValue);
+    }).catch(function(){});
+  }
+  rafId = requestAnimationFrame(loopNative);
+}
+
+function loadScript(src){
+  return new Promise(function(res, rej){
+    var s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.body.appendChild(s);
+  });
+}
+
+function startFallback(){
+  $("video").hidden = true;
+  $("fallbackReader").hidden = false;
+  var go = function(){
+    var H = window.Html5Qrcode;
+    var fmts = null;
+    try{
+      var E = window.Html5QrcodeSupportedFormats;
+      fmts = [E.QR_CODE,E.CODE_128,E.CODE_39,E.CODE_93,E.CODABAR,E.EAN_13,E.EAN_8,
+              E.UPC_A,E.UPC_E,E.ITF,E.DATA_MATRIX,E.PDF_417,E.AZTEC];
+    }catch(e){}
+    fbScanner = new H("fallbackReader", fmts ? { formatsToSupport: fmts, verbose:false } : undefined);
+    return fbScanner.start({ facingMode: "environment" },
+      { fps: 12, qrbox: undefined, aspectRatio: 1.333 },
+      function(text){ onDetected(text); },
+      function(){}
+    ).then(function(){
+      running = true;
+      setCamUI(true, "Buscando código…");
+    });
+  };
+  if(window.Html5Qrcode) return go();
+  return loadScript("https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js").then(go);
+}
+
+function startCamera(){
+  if(running) return;
+  $("camoffMsg").textContent = "Abriendo la cámara…";
+  var hasNative = typeof window.BarcodeDetector === "function";
+  var attempt = hasNative ? startNative() : Promise.reject(new Error("sin BarcodeDetector"));
+  attempt.catch(function(){
+    stopTracks();
+    return startFallback();
+  }).catch(function(err){
+    running = false;
+    setCamUI(false);
+    var m = String((err && err.name) || err || "");
+    if(/NotAllowed|Permission/i.test(m)){
+      $("camoffMsg").textContent = "El navegador bloqueó la cámara. Autoriza el permiso de cámara para este sitio y vuelve a intentar. Mientras tanto puedes escribir o pegar los códigos abajo.";
+    } else if(/NotFound|Devices/i.test(m)){
+      $("camoffMsg").textContent = "No se detectó ninguna cámara en este dispositivo. Puedes escribir los códigos abajo o usar un lector externo.";
+    } else {
+      $("camoffMsg").textContent = "No se pudo abrir la cámara aquí. Abre la app desde el navegador del celular, o escribe los códigos abajo.";
+    }
+  });
+}
+
+function stopTracks(){
+  if(rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+  $("video").srcObject = null;
+}
+
+function stopCamera(){
+  running = false; torchOn = false;
+  stopTracks();
+  if(fbScanner){
+    try{ fbScanner.stop().then(function(){ try{ fbScanner.clear(); }catch(e){} fbScanner = null; }); }
+    catch(e){ fbScanner = null; }
+  }
+  $("video").hidden = false;
+  $("fallbackReader").hidden = true;
+  $("btnTorch").hidden = true;
+  setCamUI(false);
+  $("camoffMsg").textContent = "Cámara apagada. Enciéndela para seguir escaneando.";
+}
+
+/* ------------------------------------------------------------------ *
+ * Campos de captura
+ * ------------------------------------------------------------------ */
+function setTarget(k){
+  target = k;
+  document.querySelectorAll(".field").forEach(function(el){
+    el.classList.toggle("active", el.getAttribute("data-k") === k);
+  });
+  if(running) $("camstateMsg").textContent = "Escaneando hacia " + (k === "mac" ? "MAC" : "Serial") + "…";
+}
+
+function findDup(kind, value, exceptId){
+  var v = kind === "mac" ? macKey(value) : String(value || "").trim().toUpperCase();
+  if(!v) return null;
+  var hit = live().filter(function(r){
+    if(r.id === exceptId) return false;
+    return kind === "mac" ? macKey(r.mac) === v : String(r.serial || "").trim().toUpperCase() === v;
+  });
+  return hit.length ? hit[0] : null;
+}
+
+function checkField(k){
+  var input = $(k === "mac" ? "inMac" : "inSerial");
+  var note = $(k === "mac" ? "nMac" : "nSerial");
+  var v = input.value.trim();
+  note.className = "note";
+  note.textContent = "";
+  if(!v) return;
+  var dup = findDup(k, v, editingId);
+  if(dup){
+    note.className = "note dup";
+    note.textContent = "Ya está en el inventario (registrado el " + fechaCorta(dup.createdAt) + ")";
+    return;
+  }
+  if(k === "mac" && !looksMac(v)){
+    note.className = "note warn";
+    note.textContent = "No tiene forma de MAC (12 caracteres hexadecimales)";
+    return;
+  }
+  if(k === "mac"){
+    note.className = "note ok";
+    note.textContent = "MAC válida";
+  }
+}
+
+function clearCapture(){
+  $("inSerial").value = "";
+  $("inMac").value = "";
+  $("inNota").value = "";
+  $("nSerial").textContent = ""; $("nSerial").className = "note";
+  $("nMac").textContent = ""; $("nMac").className = "note";
+  setTarget("serial");
+  lastCode = ""; lastAt = 0;
+}
+
+function saveCapture(){
+  var serial = $("inSerial").value.trim();
+  var mac = $("inMac").value.trim();
+  if($("optFmt").checked && mac) mac = fmtMac(mac);
+  var nota = $("inNota").value.trim();
+
+  if(!serial && !mac){
+    beep(false);
+    toast("Escanea al menos un código antes de guardar.");
+    return;
+  }
+  var dup = findDup("serial", serial, null) || findDup("mac", mac, null);
+  if(dup){
+    confirmSheet(
+      "Equipo repetido",
+      "Ya existe un registro con ese " + (findDup("serial", serial, null) ? "serial" : "MAC") + ": " +
+        (dup.serial || "sin serial") + " / " + (dup.mac || "sin MAC") + ".",
+      "Guardar de todos modos",
+      function(){ commitNew(serial, mac, nota); }
+    );
+    beep(false);
+    return;
+  }
+  commitNew(serial, mac, nota);
+}
+
+function commitNew(serial, mac, nota){
+  var r = { id: uid(), serial: serial, mac: mac, nota: nota, createdAt: nowIso(), updatedAt: nowIso() };
+  records.push(r);
+  lsWrite(); pushOne(r); renderAll();
+  clearCapture();
+  beep(true);
+  toast("Equipo guardado. Total: " + live().length);
+}
+
+/* ------------------------------------------------------------------ *
+ * Inventario
+ * ------------------------------------------------------------------ */
+var SVG_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
+var SVG_DEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
+
+function recRow(r, n){
+  return '<article class="rec" data-id="' + r.id + '">' +
+    '<div class="pair"><span class="k s">Serial</span><span class="v' + (r.serial ? '' : ' empty') + '">' +
+      (r.serial ? esc(r.serial) : "sin serial") + '</span></div>' +
+    '<div class="acts">' +
+      '<button class="iconbtn edit" title="Editar" aria-label="Editar equipo ' + n + '">' + SVG_EDIT + '</button>' +
+      '<button class="iconbtn del" title="Eliminar" aria-label="Eliminar equipo ' + n + '">' + SVG_DEL + '</button>' +
+    '</div>' +
+    '<div class="pair"><span class="k m">MAC</span><span class="v' + (r.mac ? '' : ' empty') + '">' +
+      (r.mac ? esc(r.mac) : "sin MAC") + '</span></div>' +
+    '<div class="meta"><span>#' + n + '</span><span>' + fechaCorta(r.createdAt) + " · " + horaCorta(r.createdAt) + '</span>' +
+      (r.nota ? '<span>' + esc(r.nota) + '</span>' : '') + '</div>' +
+  '</article>';
+}
+
+function renderList(){
+  var q = $("q").value.trim().toLowerCase();
+  var all = live().slice().sort(function(a,b){ return (b.createdAt || "").localeCompare(a.createdAt || ""); });
+  var rows = all.filter(function(r){
+    if(!q) return true;
+    return ((r.serial||"") + " " + (r.mac||"") + " " + (r.nota||"")).toLowerCase().indexOf(q) >= 0;
+  });
+  $("qCount").textContent = q ? rows.length + " de " + all.length : "";
+
+  if(!all.length){
+    $("list").innerHTML =
+      '<div class="empty-state"><h3>Todavía no hay equipos</h3>' +
+      '<p>Escanea el QR del serial y el de la MAC, guarda, y cada equipo aparecerá aquí así:</p>' +
+      '<p class="demo-cap">Ejemplo</p>' +
+      '<div class="demo">' + recRow({id:"demo",serial:"FGL2043A1XY",mac:"B4:FB:E4:1C:77:09",nota:"Rack 2 · Sede Norte",createdAt:nowIso()}, 1) + '</div></div>';
+    return;
+  }
+  if(!rows.length){
+    $("list").innerHTML = '<div class="empty-state"><h3>Sin resultados</h3><p>Ningún equipo coincide con «' + esc($("q").value.trim()) + '».</p></div>';
+    return;
+  }
+  $("list").innerHTML = rows.map(function(r, i){ return recRow(r, all.indexOf(r) + 1); }).join("");
+}
+
+function renderStats(){
+  var all = live();
+  $("cCount").textContent = all.length;
+  $("sTotal").textContent = all.length;
+  $("sFull").textContent = all.filter(function(r){ return r.serial && r.mac; }).length;
+
+  var seen = {}, dups = 0;
+  all.forEach(function(r){
+    var keys = [];
+    if(r.serial) keys.push("S:" + r.serial.trim().toUpperCase());
+    if(r.mac) keys.push("M:" + macKey(r.mac));
+    var isDup = keys.some(function(k){ return seen[k]; });
+    keys.forEach(function(k){ seen[k] = true; });
+    if(isDup) dups++;
+  });
+  $("sDup").textContent = dups;
+  $("sDupWrap").classList.toggle("alert", dups > 0);
+
+  var prev = all.slice().sort(function(a,b){ return (a.createdAt||"").localeCompare(b.createdAt||""); });
+  if(!prev.length){
+    $("prev").innerHTML = '<tr><td class="txt" colspan="5">Aún no hay equipos para exportar.</td></tr>';
+  } else {
+    $("prev").innerHTML = prev.slice(0, 8).map(function(r, i){
+      return '<tr><td class="txt">' + (i+1) + '</td><td class="s">' + esc(r.serial || "—") + '</td>' +
+             '<td class="m">' + esc(r.mac || "—") + '</td><td class="txt">' + esc(r.nota || "") + '</td>' +
+             '<td class="txt">' + fechaCorta(r.createdAt) + '</td></tr>';
+    }).join("") + (prev.length > 8 ? '<tr><td class="txt" colspan="5">y ' + (prev.length - 8) + ' equipo(s) más…</td></tr>' : "");
+  }
+}
+
+function renderAll(){ renderList(); renderStats(); }
+
+/* ------------------------------------------------------------------ *
+ * Modales
+ * ------------------------------------------------------------------ */
+function closeSheet(){ $("scrim").hidden = true; $("sheet").innerHTML = ""; }
+
+function confirmSheet(title, body, okLabel, onOk, danger){
+  $("sheet").innerHTML =
+    '<h3>' + esc(title) + '</h3><p>' + esc(body) + '</p>' +
+    '<div class="acts"><button class="btn ghost" id="mCancel">Cancelar</button>' +
+    '<button class="btn ' + (danger ? "danger" : "primary") + '" id="mOk">' + esc(okLabel) + '</button></div>';
+  $("scrim").hidden = false;
+  $("mCancel").onclick = closeSheet;
+  $("mOk").onclick = function(){ closeSheet(); onOk(); };
+  $("mOk").focus();
+}
+
+function editSheet(id){
+  var r = live().filter(function(x){ return x.id === id; })[0];
+  if(!r) return;
+  editingId = id;
+  $("sheet").innerHTML =
+    '<h3>Editar equipo</h3><p>Corrige lo que quedó mal en el escaneo.</p>' +
+    '<div class="f"><label for="eS">Serial</label><input id="eS" value="' + esc(r.serial || "") + '" autocomplete="off" spellcheck="false"></div>' +
+    '<div class="f"><label for="eM">MAC</label><input id="eM" value="' + esc(r.mac || "") + '" autocomplete="off" spellcheck="false"></div>' +
+    '<div class="f plain"><label for="eN">Observación</label><input id="eN" value="' + esc(r.nota || "") + '" autocomplete="off"></div>' +
+    '<div class="acts"><button class="btn ghost" id="mCancel">Cancelar</button>' +
+    '<button class="btn primary" id="mOk">Guardar cambios</button></div>';
+  $("scrim").hidden = false;
+  $("mCancel").onclick = function(){ editingId = null; closeSheet(); };
+  $("mOk").onclick = function(){
+    var mac = $("eM").value.trim();
+    if($("optFmt").checked && mac) mac = fmtMac(mac);
+    r.serial = $("eS").value.trim();
+    r.mac = mac;
+    r.nota = $("eN").value.trim();
+    r.updatedAt = nowIso();
+    editingId = null;
+    lsWrite(); pushOne(r); renderAll(); closeSheet();
+    toast("Cambios guardados.");
+  };
+  $("eS").focus();
+}
+
+function deleteRec(id){
+  var r = records.filter(function(x){ return x.id === id; })[0];
+  if(!r) return;
+  confirmSheet("Eliminar equipo",
+    "Se quitará del inventario: " + (r.serial || "sin serial") + " / " + (r.mac || "sin MAC") + ".",
+    "Eliminar", function(){
+      r.deleted = true;
+      r.updatedAt = nowIso();
+      lsWrite(); pushOne(r); renderAll();
+      toast("Equipo eliminado.");
+    }, true);
+}
+
+/* ------------------------------------------------------------------ *
+ * Exportación
+ * ------------------------------------------------------------------ */
+function exportRows(){
+  var all = live().slice().sort(function(a,b){ return (a.createdAt||"").localeCompare(b.createdAt||""); });
+  return all.map(function(r, i){
+    return [String(i+1), r.serial || "", r.mac || "", r.nota || "", fechaCorta(r.createdAt), horaCorta(r.createdAt)];
+  });
+}
+var HEADERS = ["N°","Serial","MAC","Observación","Fecha","Hora"];
+
+function stamp(){
+  var d = new Date(), p = function(n){ return n<10?"0"+n:""+n; };
+  return d.getFullYear() + p(d.getMonth()+1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+}
+
+function csvText(){
+  var rows = [HEADERS].concat(exportRows());
+  return "﻿" + rows.map(function(r){
+    return r.map(function(c){
+      var s = String(c == null ? "" : c);
+      return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(";");
+  }).join("\r\n");
+}
+function tsvText(){
+  var rows = [HEADERS].concat(exportRows());
+  return rows.map(function(r){ return r.map(function(c){ return String(c).replace(/\t/g," "); }).join("\t"); }).join("\n");
+}
+
+/* --- generador mínimo de .xlsx (ZIP sin compresión + XML) --- */
+var CRC_T = (function(){
+  var t = new Uint32Array(256);
+  for(var n = 0; n < 256; n++){
+    var c = n;
+    for(var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8){
+  var c = 0xFFFFFFFF;
+  for(var i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function zipBlob(files){
+  var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+  var d = new Date();
+  var dosDate = (((d.getFullYear() - 1980) & 0x7F) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  var dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  files.forEach(function(f){
+    var name = enc.encode(f.name);
+    var data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+    var crc = crc32(data);
+    var lh = new Uint8Array(30 + name.length), lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0, true);
+    lv.setUint16(8, 0, true); lv.setUint16(10, dosTime, true); lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true); lv.setUint32(18, data.length, true); lv.setUint32(22, data.length, true);
+    lv.setUint16(26, name.length, true); lv.setUint16(28, 0, true);
+    lh.set(name, 30);
+    parts.push(lh, data);
+    var ch = new Uint8Array(46 + name.length), cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true); cv.setUint16(10, 0, true); cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true); cv.setUint32(16, crc, true);
+    cv.setUint32(20, data.length, true); cv.setUint32(24, data.length, true);
+    cv.setUint16(28, name.length, true); cv.setUint16(30, 0, true); cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true); cv.setUint16(36, 0, true); cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    ch.set(name, 46);
+    central.push(ch);
+    offset += lh.length + data.length;
+  });
+  var cdSize = central.reduce(function(a, c){ return a + c.length; }, 0);
+  var eo = new Uint8Array(22), ev = new DataView(eo.buffer);
+  ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, central.length, true);
+  ev.setUint16(10, central.length, true); ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+  return new Blob(parts.concat(central, [eo]), { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+function colLetter(n){
+  var s = "";
+  while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
+  return s;
+}
+function xlsxBlob(){
+  var rows = [HEADERS].concat(exportRows());
+  var sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<cols><col min="1" max="1" width="6"/><col min="2" max="2" width="26"/><col min="3" max="3" width="22"/>' +
+    '<col min="4" max="4" width="30"/><col min="5" max="5" width="12"/><col min="6" max="6" width="9"/></cols><sheetData>';
+  rows.forEach(function(r, ri){
+    sheet += '<row r="' + (ri + 1) + '">';
+    r.forEach(function(c, ci){
+      var ref = colLetter(ci + 1) + (ri + 1);
+      var style = ri === 0 ? ' s="1"' : '';
+      sheet += '<c r="' + ref + '" t="inlineStr"' + style + '><is><t xml:space="preserve">' + esc(c) + '</t></is></c>';
+    });
+    sheet += '</row>';
+  });
+  sheet += '</sheetData></worksheet>';
+
+  var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+    '</Types>';
+  var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+    '</Relationships>';
+  var wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    '<sheets><sheet name="Inventario" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  var wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+    '</Relationships>';
+  var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>' +
+    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>' +
+    '<fills count="3"><fill><patternFill patternType="none"/></fill>' +
+    '<fill><patternFill patternType="gray125"/></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF0A6E68"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+    '<borders count="1"><border/></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>' +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+
+  return zipBlob([
+    { name: "[Content_Types].xml", data: ct },
+    { name: "_rels/.rels", data: rels },
+    { name: "xl/workbook.xml", data: wb },
+    { name: "xl/_rels/workbook.xml.rels", data: wbRels },
+    { name: "xl/styles.xml", data: styles },
+    { name: "xl/worksheets/sheet1.xml", data: sheet }
+  ]);
+}
+
+var downloads = null, downloadsChecked = false;
+function ensureDownloads(){
+  if(downloadsChecked) return Promise.resolve(downloads);
+  downloadsChecked = true;
+  if(!(window.claude && typeof window.claude.use === "function")) return Promise.resolve(null);
+  return window.claude.use("downloads").then(function(d){ downloads = d; return d; }, function(){ return null; });
+}
+
+function deliver(filename, data){
+  if(!live().length){ toast("No hay equipos para exportar todavía."); return; }
+  ensureDownloads().then(function(d){
+    if(d){
+      d.save({ filename: filename, data: data }).then(function(){
+        toast("Archivo guardado: " + filename);
+      }, function(err){
+        var code = (err && err.code) || "";
+        if(code === "declined") return;
+        fallbackDownload(filename, data);
+      });
+    } else {
+      fallbackDownload(filename, data);
+    }
+  });
+}
+function fallbackDownload(filename, data){
+  try{
+    var blob = data instanceof Blob ? data : new Blob([data], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    toast("Descargando " + filename + "…");
+  }catch(e){
+    toast("No se pudo descargar aquí. Usa «Copiar tabla» y pega en Excel.");
+  }
+}
+
+function copyTable(){
+  if(!live().length){ toast("No hay equipos para copiar todavía."); return; }
+  var txt = tsvText();
+  var done = function(){ toast("Tabla copiada. Pégala en Excel o Google Sheets."); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done, function(){ legacyCopy(txt, done); });
+  } else legacyCopy(txt, done);
+}
+function legacyCopy(txt, done){
+  try{
+    var ta = document.createElement("textarea");
+    ta.value = txt;
+    ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+    done();
+  }catch(e){ toast("Tu navegador no permitió copiar. Exporta a Excel o CSV."); }
+}
+
+/* ------------------------------------------------------------------ *
+ * Arranque
+ * ------------------------------------------------------------------ */
+function switchTab(name){
+  ["scan","inv","exp"].forEach(function(k){
+    $("v-" + k).hidden = k !== name;
+  });
+  document.querySelectorAll(".tabs button").forEach(function(b){
+    b.setAttribute("aria-selected", b.getAttribute("data-tab") === name ? "true" : "false");
+  });
+  if(name !== "scan" && running) { /* la cámara sigue encendida a propósito */ }
+}
+
+function wire(){
+  document.querySelectorAll(".tabs button").forEach(function(b){
+    b.onclick = function(){ switchTab(b.getAttribute("data-tab")); };
+  });
+
+  $("btnCam").onclick = function(){ running ? stopCamera() : startCamera(); };
+  $("btnTorch").onclick = function(){
+    if(!stream) return;
+    var track = stream.getVideoTracks()[0];
+    torchOn = !torchOn;
+    track.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function(){
+      toast("Este dispositivo no permite controlar la linterna.");
+    });
+  };
+  $("btnFlip").onclick = function(){
+    devIndex = (devIndex + 1) % Math.max(devices.length, 1);
+    stopTracks();
+    running = false;
+    startCamera();
+  };
+
+  document.querySelectorAll(".field").forEach(function(el){
+    el.addEventListener("click", function(e){
+      if(e.target.tagName !== "INPUT") setTarget(el.getAttribute("data-k"));
+    });
+  });
+  $("inSerial").addEventListener("focus", function(){ setTarget("serial"); });
+  $("inMac").addEventListener("focus", function(){ setTarget("mac"); });
+  $("inSerial").addEventListener("input", function(){ checkField("serial"); });
+  $("inMac").addEventListener("input", function(){ checkField("mac"); });
+  $("inMac").addEventListener("blur", function(){
+    if($("optFmt").checked && $("inMac").value.trim()){
+      $("inMac").value = fmtMac($("inMac").value);
+      checkField("mac");
+    }
+  });
+  // Un lector externo (tipo pistola) termina con Enter: salta al otro campo.
+  $("inSerial").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); setTarget("mac"); $("inMac").focus(); } });
+  $("inMac").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); saveCapture(); } });
+
+  $("btnSave").onclick = saveCapture;
+  $("btnClear").onclick = function(){ clearCapture(); toast("Campos limpios."); };
+
+  $("q").addEventListener("input", renderList);
+
+  $("list").addEventListener("click", function(e){
+    var btn = e.target.closest ? e.target.closest(".iconbtn") : null;
+    if(!btn) return;
+    var card = btn.closest(".rec");
+    if(!card || card.getAttribute("data-id") === "demo") return;
+    var id = card.getAttribute("data-id");
+    if(btn.classList.contains("edit")) editSheet(id); else deleteRec(id);
+  });
+
+  $("btnXlsx").onclick = function(){ deliver("inventario-" + stamp() + ".xlsx", xlsxBlob()); };
+  $("btnCsv").onclick = function(){ deliver("inventario-" + stamp() + ".csv", csvText()); };
+  $("btnCopy").onclick = copyTable;
+  $("btnWipe").onclick = function(){
+    if(!live().length){ toast("El inventario ya está vacío."); return; }
+    confirmSheet("Borrar todo", "Se eliminarán los " + live().length + " equipos guardados. Exporta primero si necesitas conservarlos.",
+      "Borrar todo", function(){
+        live().forEach(function(r){ r.deleted = true; r.updatedAt = nowIso(); pushOne(r); });
+        lsWrite(); renderAll();
+        toast("Inventario vacío.");
+      }, true);
+  };
+
+  $("scrim").addEventListener("click", function(e){ if(e.target === $("scrim")){ editingId = null; closeSheet(); } });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && !$("scrim").hidden){ editingId = null; closeSheet(); } });
+
+  ["optAuto","optFmt","optSound"].forEach(function(id){
+    $(id).addEventListener("change", function(){
+      optWrite({ auto: $("optAuto").checked, fmt: $("optFmt").checked, sound: $("optSound").checked });
+    });
+  });
+}
+
+function boot(){
+  var o = optRead();
+  if(typeof o.auto === "boolean") $("optAuto").checked = o.auto;
+  if(typeof o.fmt === "boolean") $("optFmt").checked = o.fmt;
+  if(typeof o.sound === "boolean") $("optSound").checked = o.sound;
+
+  records = lsRead();
+  wire();
+  setTarget("serial");
+  renderAll();
+  initCloud();
+  setInterval(pushPending, 20000);
+  window.addEventListener("online", pushPending);
+}
+
+boot();
+})();
+</script>
+
+</body>
+</html>
