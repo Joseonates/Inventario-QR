@@ -95,6 +95,24 @@ button,input,textarea,select{font:inherit;color:inherit}
 .view{display:flex;flex-direction:column;gap:16px}
 .view[hidden]{display:none}
 
+/* ---------- selector de destino ---------- */
+.scanpick{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.pick{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;cursor:pointer;
+  border:2px solid var(--line);background:var(--surface);border-radius:13px;padding:11px 13px;box-shadow:var(--shadow)}
+.pick .pt{display:flex;align-items:center;gap:8px;font-family:var(--fd);font-weight:700;font-size:18px;
+  letter-spacing:.09em;text-transform:uppercase;line-height:1.1;color:var(--muted)}
+.pick .pt i{width:11px;height:11px;border-radius:50%;border:2px solid var(--muted);display:block;flex:0 0 auto}
+.pick .ps{font-size:11.5px;color:var(--muted);line-height:1.3}
+.pick[data-pick="serial"].on{border-color:var(--serial);background:var(--serial-soft)}
+.pick[data-pick="serial"].on .pt{color:var(--serial)}
+.pick[data-pick="serial"].on .pt i{border-color:var(--serial);background:var(--serial)}
+.pick[data-pick="mac"].on{border-color:var(--mac);background:var(--mac-soft)}
+.pick[data-pick="mac"].on .pt{color:var(--mac)}
+.pick[data-pick="mac"].on .pt i{border-color:var(--mac);background:var(--mac)}
+.pick.on .ps{color:var(--ink)}
+.ftype{font-family:var(--fd);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;
+  border:1px solid var(--line);border-radius:999px;padding:2px 7px;color:var(--muted);white-space:nowrap}
+
 /* ---------- camera ---------- */
 .camera{position:relative;background:#0B100F;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);aspect-ratio:4/3;max-height:44vh}
 .camera video{width:100%;height:100%;object-fit:cover;display:block}
@@ -105,6 +123,10 @@ button,input,textarea,select{font:inherit;color:inherit}
 .camera.idle .reticle i{display:none}
 .camstate{position:absolute;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(transparent,rgba(6,12,11,.8));color:#EAF2F0;font-size:12.5px;display:flex;align-items:center;gap:8px}
 .camstate .pulse{width:8px;height:8px;border-radius:50%;background:#7BE0D4;flex:0 0 auto;animation:pulse 1.4s ease-in-out infinite}
+.camstate .fmt{margin-left:auto;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);border-radius:999px;
+  padding:2px 9px;font-family:var(--fd);font-weight:700;font-size:11px;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+#hl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.camera.hit .reticle i{border-color:rgba(255,255,255,.35)}
 @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.camstate .pulse{animation:none}}
 .camoff{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;color:#C7D3D0;gap:10px}
@@ -241,15 +263,27 @@ td.txt{font-family:var(--fb);color:var(--muted)}
 
   <!-- ============ ESCANEAR ============ -->
   <section class="view" id="v-scan">
+    <div class="scanpick" role="group" aria-label="Qué vas a escanear">
+      <button class="pick on" data-pick="serial" aria-pressed="true">
+        <span class="pt"><i></i>Serial</span>
+        <span class="ps" id="psSerial">Recibe el escaneo</span>
+      </button>
+      <button class="pick" data-pick="mac" aria-pressed="false">
+        <span class="pt"><i></i>MAC</span>
+        <span class="ps" id="psMac">Toca para escanear aquí</span>
+      </button>
+    </div>
+
     <div class="camera idle" id="cam">
       <video id="video" playsinline muted autoplay></video>
       <div id="fallbackReader" hidden></div>
+      <canvas id="hl"></canvas>
       <div class="reticle"><i></i></div>
       <div class="camoff" id="camoff">
         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#8FA5A0" stroke-width="1.6" stroke-linecap="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
         <p id="camoffMsg">Enciende la cámara para empezar a escanear.</p>
       </div>
-      <div class="camstate" id="camstate" hidden><span class="pulse"></span><span id="camstateMsg">Buscando código…</span></div>
+      <div class="camstate" id="camstate" hidden><span class="pulse"></span><span id="camstateMsg">Buscando código…</span><span class="fmt" id="fmtChip" hidden></span></div>
     </div>
 
     <div class="controls">
@@ -269,12 +303,12 @@ td.txt{font-family:var(--fb);color:var(--muted)}
 
     <div class="fields">
       <div class="field active" data-k="serial">
-        <div class="fhead"><span class="tag">Serial</span><span class="aim"><b></b>Recibe el escaneo</span></div>
+        <div class="fhead"><span class="tag">Serial</span><span class="ftype" id="tSerial" hidden></span><span class="aim"><b></b>Recibe el escaneo</span></div>
         <input id="inSerial" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Escanea o escribe el serial">
         <div class="note" id="nSerial"></div>
       </div>
       <div class="field" data-k="mac">
-        <div class="fhead"><span class="tag">MAC</span><span class="aim"><b></b>Recibe el escaneo</span></div>
+        <div class="fhead"><span class="tag">MAC</span><span class="ftype" id="tMac" hidden></span><span class="aim"><b></b>Recibe el escaneo</span></div>
         <input id="inMac" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Escanea o escribe la MAC">
         <div class="note" id="nMac"></div>
       </div>
@@ -560,6 +594,123 @@ var lastCode = "", lastAt = 0;
 var FORMATS = ["qr_code","code_128","code_39","code_93","codabar","ean_13","ean_8",
                "upc_a","upc_e","itf","data_matrix","pdf417","aztec"];
 
+/* Nombres legibles de cada simbología */
+var FMT_LONG = {
+  qr_code:"Código QR", data_matrix:"Data Matrix", aztec:"Aztec", pdf417:"PDF417",
+  code_128:"Código de barras Code 128", code_39:"Código de barras Code 39",
+  code_93:"Código de barras Code 93", codabar:"Código de barras Codabar",
+  ean_13:"Código de barras EAN-13", ean_8:"Código de barras EAN-8",
+  upc_a:"Código de barras UPC-A", upc_e:"Código de barras UPC-E",
+  itf:"Código de barras ITF"
+};
+var FMT_SHORT = {
+  qr_code:"QR", data_matrix:"Data Matrix", aztec:"Aztec", pdf417:"PDF417",
+  code_128:"Barras · 128", code_39:"Barras · 39", code_93:"Barras · 93",
+  codabar:"Barras · Codabar", ean_13:"Barras · EAN-13", ean_8:"Barras · EAN-8",
+  upc_a:"Barras · UPC-A", upc_e:"Barras · UPC-E", itf:"Barras · ITF"
+};
+function normFmt(f){ return String(f || "").toLowerCase().replace(/[\s-]+/g, "_"); }
+function fmtLong(f){ f = normFmt(f); return FMT_LONG[f] || (f ? f.toUpperCase().replace(/_/g, " ") : "Código"); }
+function fmtShort(f){ f = normFmt(f); return FMT_SHORT[f] || (f ? f.toUpperCase().replace(/_/g, " ") : "Código"); }
+function esQr(f){ return /qr|matrix|aztec|pdf417/.test(normFmt(f)); }
+
+function setFmtChip(f){
+  var chip = $("fmtChip");
+  if(!f){ chip.hidden = true; chip.textContent = ""; return; }
+  chip.hidden = false;
+  chip.textContent = fmtShort(f);
+}
+function marcaTipo(k, f){
+  var el = $(k === "mac" ? "tMac" : "tSerial");
+  if(!f){ el.hidden = true; el.textContent = ""; return; }
+  el.hidden = false;
+  el.textContent = "Leído por " + fmtShort(f);
+}
+
+function cssVar(name){
+  try{ return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#0A6E68"; }
+  catch(e){ return "#0A6E68"; }
+}
+
+/* Dibuja el recuadro sobre el código que la cámara está leyendo */
+function drawHighlights(list){
+  var cv = $("hl"), v = $("video");
+  var w = cv.clientWidth, h = cv.clientHeight;
+  if(!w || !h) return;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if(cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)){
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  }
+  var ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  $("cam").classList.toggle("hit", !!(list && list.length));
+  if(!list || !list.length) return;
+
+  var vw = v.videoWidth || w, vh = v.videoHeight || h;
+  var s = Math.max(w / vw, h / vh);
+  var ox = (w - vw * s) / 2, oy = (h - vh * s) / 2;
+  var color = target === "mac" ? cssVar("--mac") : cssVar("--serial");
+
+  list.forEach(function(r, i){
+    var pts = (r.cornerPoints || []).map(function(p){ return { x: ox + p.x * s, y: oy + p.y * s }; });
+    if(pts.length < 3 && r.boundingBox){
+      var b = r.boundingBox;
+      pts = [{x:b.x,y:b.y},{x:b.x+b.width,y:b.y},{x:b.x+b.width,y:b.y+b.height},{x:b.x,y:b.y+b.height}]
+        .map(function(p){ return { x: ox + p.x * s, y: oy + p.y * s }; });
+    }
+    if(pts.length < 3) return;
+
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(var k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
+    ctx.closePath();
+    ctx.globalAlpha = i === 0 ? 0.20 : 0.10;
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = i === 0 ? 4 : 2;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    if(i === 0){
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "rgba(255,255,255,.85)";
+      ctx.stroke();
+      etiqueta(ctx, pts, fmtShort(r.format), color, w);
+    }
+  });
+}
+
+function etiqueta(ctx, pts, texto, color, maxW){
+  var minX = Math.min.apply(null, pts.map(function(p){ return p.x; }));
+  var minY = Math.min.apply(null, pts.map(function(p){ return p.y; }));
+  ctx.font = '600 13px "IBM Plex Sans", system-ui, sans-serif';
+  var padX = 9, hh = 24;
+  var tw = ctx.measureText(texto).width + padX * 2;
+  var x = Math.max(6, Math.min(minX, maxW - tw - 6));
+  var y = minY - hh - 7;
+  if(y < 6) y = minY + 7;
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x, y, tw, hh, 7); ctx.fill(); }
+  else ctx.fillRect(x, y, tw, hh);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.textBaseline = "middle";
+  ctx.fillText(texto, x + padX, y + hh / 2 + 0.5);
+}
+
+function clearHighlights(){
+  try{
+    var cv = $("hl");
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+  }catch(e){}
+  $("cam").classList.remove("hit");
+  setFmtChip(null);
+}
+
 function setCamUI(on, msg){
   $("cam").classList.toggle("idle", !on);
   $("camoff").hidden = on;
@@ -569,7 +720,7 @@ function setCamUI(on, msg){
   if(msg) $("camstateMsg").textContent = msg;
 }
 
-function onDetected(raw){
+function onDetected(raw, formato){
   var code = cleanCode(raw);
   if(!code) return;
   var t = Date.now();
@@ -580,8 +731,10 @@ function onDetected(raw){
   var value = code;
   if(field === "mac" && $("optFmt").checked) value = fmtMac(value);
   $(field === "mac" ? "inMac" : "inSerial").value = value;
+  marcaTipo(field, formato);
   beep(true);
-  $("camstateMsg").textContent = (field === "mac" ? "MAC" : "Serial") + " capturado: " + value;
+  $("camstateMsg").textContent = fmtLong(formato) + " → " + (field === "mac" ? "MAC" : "Serial") + ": " + value;
+  msgHoldUntil = perfNow() + 2200;
   checkField("serial"); checkField("mac");
 
   if($("optAuto").checked){
@@ -615,13 +768,31 @@ function startNative(){
   });
 }
 
+var busy = false, lastDetectAt = 0, lastHitAt = 0, msgHoldUntil = 0;
+
+function perfNow(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
+function idleMsg(){ return "Apunta al código " + (target === "mac" ? "de la MAC" : "del serial") + "…"; }
+
 function loopNative(){
   if(!running) return;
   var v = $("video");
-  if(v.readyState >= 2 && detector){
+  var now = perfNow();
+  if(!busy && detector && v.readyState >= 2 && now - lastDetectAt > 80){
+    busy = true; lastDetectAt = now;
     detector.detect(v).then(function(res){
-      if(res && res.length) onDetected(res[0].rawValue);
-    }).catch(function(){});
+      busy = false;
+      if(!running) return;
+      if(res && res.length){
+        lastHitAt = now;
+        drawHighlights(res);
+        setFmtChip(res[0].format);
+        onDetected(res[0].rawValue, res[0].format);
+      } else if(now - lastHitAt > 350){
+        drawHighlights(null);
+        setFmtChip(null);
+        if(now > msgHoldUntil) $("camstateMsg").textContent = idleMsg();
+      }
+    }).catch(function(){ busy = false; });
   }
   rafId = requestAnimationFrame(loopNative);
 }
@@ -648,7 +819,12 @@ function startFallback(){
     fbScanner = new H("fallbackReader", fmts ? { formatsToSupport: fmts, verbose:false } : undefined);
     return fbScanner.start({ facingMode: "environment" },
       { fps: 12, qrbox: undefined, aspectRatio: 1.333 },
-      function(text){ onDetected(text); },
+      function(text, result){
+        var f = "";
+        try{ f = (result && result.result && result.result.format && result.result.format.formatName) || ""; }catch(e){}
+        setFmtChip(f);
+        onDetected(text, f);
+      },
       function(){}
     ).then(function(){
       running = true;
@@ -690,6 +866,8 @@ function stopTracks(){
 
 function stopCamera(){
   running = false; torchOn = false;
+  busy = false;
+  clearHighlights();
   stopTracks();
   if(fbScanner){
     try{ fbScanner.stop().then(function(){ try{ fbScanner.clear(); }catch(e){} fbScanner = null; }); }
@@ -710,7 +888,20 @@ function setTarget(k){
   document.querySelectorAll(".field").forEach(function(el){
     el.classList.toggle("active", el.getAttribute("data-k") === k);
   });
-  if(running) $("camstateMsg").textContent = "Escaneando hacia " + (k === "mac" ? "MAC" : "Serial") + "…";
+  document.querySelectorAll(".pick").forEach(function(b){
+    var on = b.getAttribute("data-pick") === k;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  $("psSerial").textContent = k === "serial" ? "Recibe el escaneo" : "Toca para escanear aquí";
+  $("psMac").textContent = k === "mac" ? "Recibe el escaneo" : "Toca para escanear aquí";
+  // el mismo código puede leerse ahora hacia el otro campo
+  lastCode = ""; lastAt = 0;
+  if(running){
+    msgHoldUntil = 0;
+    $("camstateMsg").textContent = idleMsg();
+    drawHighlights(null);
+  }
 }
 
 function findDup(kind, value, exceptId){
@@ -753,6 +944,7 @@ function clearCapture(){
   $("inNota").value = "";
   $("nSerial").textContent = ""; $("nSerial").className = "note";
   $("nMac").textContent = ""; $("nMac").className = "note";
+  marcaTipo("serial", null); marcaTipo("mac", null);
   setTarget("serial");
   lastCode = ""; lastAt = 0;
 }
@@ -1263,8 +1455,12 @@ function wire(){
   });
   $("inSerial").addEventListener("focus", function(){ setTarget("serial"); });
   $("inMac").addEventListener("focus", function(){ setTarget("mac"); });
-  $("inSerial").addEventListener("input", function(){ checkField("serial"); });
-  $("inMac").addEventListener("input", function(){ checkField("mac"); });
+  $("inSerial").addEventListener("input", function(){ marcaTipo("serial", null); checkField("serial"); });
+  $("inMac").addEventListener("input", function(){ marcaTipo("mac", null); checkField("mac"); });
+
+  document.querySelectorAll(".pick").forEach(function(b){
+    b.addEventListener("click", function(){ setTarget(b.getAttribute("data-pick")); });
+  });
   $("inMac").addEventListener("blur", function(){
     if($("optFmt").checked && $("inMac").value.trim()){
       $("inMac").value = fmtMac($("inMac").value);
