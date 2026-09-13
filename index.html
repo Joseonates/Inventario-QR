@@ -172,7 +172,15 @@ button,input,textarea,select{font:inherit;color:inherit}
 .listhead h2{font-family:var(--fd);font-weight:700;font-size:16px;letter-spacing:.08em;text-transform:uppercase;margin:0}
 .listhead span{font-size:12px;color:var(--muted);margin-left:auto}
 .codes{display:flex;flex-direction:column;gap:7px}
-.codes.mini{max-height:236px;overflow-y:auto;padding-right:2px}
+.codes.mini{max-height:min(46vh,360px);overflow-y:auto;padding-right:2px}
+/* selección múltiple */
+.selbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.selbar .hint{margin-left:auto}
+.selall{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;box-shadow:var(--shadow)}
+.chk{width:19px;height:19px;accent-color:var(--barras);cursor:pointer;flex:0 0 auto}
+.codes.selmode .code{grid-template-columns:24px 28px 1fr auto;cursor:pointer}
+.codes.selmode .code.sel{border-color:var(--barras);background:var(--barras-soft)}
 .code{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;
   background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);
   border-radius:11px;padding:9px 11px;box-shadow:var(--shadow)}
@@ -215,13 +223,20 @@ button,input,textarea,select{font:inherit;color:inherit}
 .stat b{display:block;font-family:var(--fm);font-weight:600;font-size:23px;line-height:1.1;font-variant-numeric:tabular-nums}
 .stat span{font-family:var(--fd);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .stat.qr b{color:var(--qr)} .stat.barras b{color:var(--barras)}
-.tablewrap{overflow:auto;max-height:min(52vh,420px);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
-  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+/* La tabla crece con la página: nada de scroll dentro de scroll, que en el
+   celular se traba y esconde las últimas filas. Colapsada solo recorta. */
+.prevbox{position:relative}
+.tablewrap{overflow-x:auto;overflow-y:hidden;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.tablewrap.colapsada{max-height:320px}
 .tablewrap::-webkit-scrollbar{width:11px;height:11px}
 .tablewrap::-webkit-scrollbar-track{background:var(--surface-2);border-radius:8px}
 .tablewrap::-webkit-scrollbar-thumb{background:var(--muted);border-radius:8px;border:3px solid var(--surface-2)}
 .tablewrap::-webkit-scrollbar-thumb:hover{background:var(--ink)}
-.codes.mini{scrollbar-width:thin;scrollbar-color:var(--muted) transparent;overscroll-behavior:contain}
+.fade{position:absolute;left:1px;right:1px;bottom:1px;height:64px;pointer-events:none;border-radius:0 0 var(--radius) var(--radius);
+  background:linear-gradient(transparent,var(--surface))}
+.prevmas{width:100%;margin-top:9px;justify-content:center}
+.codes.mini{scrollbar-width:thin;scrollbar-color:var(--muted) transparent;padding-bottom:4px}
 .codes.mini::-webkit-scrollbar{width:9px}
 .codes.mini::-webkit-scrollbar-track{background:var(--surface-2);border-radius:8px}
 .codes.mini::-webkit-scrollbar-thumb{background:var(--muted);border-radius:8px;border:2px solid var(--surface-2)}
@@ -345,7 +360,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     </div>
 
     <div class="listhead">
-      <h2>Últimos leídos</h2>
+      <h2>Códigos leídos</h2>
       <span id="miniInfo"></span>
     </div>
     <div class="codes mini" id="mini"></div>
@@ -365,6 +380,18 @@ td.txt{font-family:var(--fb);color:var(--muted)}
       <input id="q" placeholder="Buscar un código" autocomplete="off">
       <span id="qCount" class="hint"></span>
     </div>
+
+    <div class="selbar">
+      <button class="btn small" id="btnSelMode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Seleccionar
+      </button>
+      <label class="selall" id="selAllWrap" hidden><input type="checkbox" class="chk" id="selAll"> Todos</label>
+      <button class="btn small danger" id="btnDelSel" hidden>Eliminar</button>
+      <button class="btn small ghost" id="btnSelCancel" hidden>Cancelar</button>
+      <span class="hint" id="selInfo"></span>
+    </div>
+
     <div class="codes" id="list"></div>
   </section>
 
@@ -392,12 +419,16 @@ td.txt{font-family:var(--fb);color:var(--muted)}
 
     <div>
       <p class="cap previnfo">Vista previa<span id="prevInfo"></span></p>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>#</th><th>Código</th><th>Tipo</th><th>Etiqueta</th><th>Fecha</th></tr></thead>
-          <tbody id="prev"></tbody>
-        </table>
+      <div class="prevbox">
+        <div class="tablewrap colapsada" id="prevWrap">
+          <table>
+            <thead><tr><th>#</th><th>Código</th><th>Tipo</th><th>Etiqueta</th><th>Fecha</th></tr></thead>
+            <tbody id="prev"></tbody>
+          </table>
+        </div>
+        <div class="fade" id="prevFade" hidden></div>
       </div>
+      <button class="btn small ghost prevmas" id="btnPrevMas" hidden></button>
     </div>
 
     <div class="card">
@@ -647,6 +678,7 @@ function trocear(texto){
 
 var ultimoId = null;
 var repeId = null;
+var modoSel = false, seleccion = {};
 
 function agregar(texto, formato, origenManual, callado){
   var piezas = trocear(texto);
@@ -704,9 +736,12 @@ function agregar(texto, formato, origenManual, callado){
 var SVG_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
 var SVG_DEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
 
-function fila(r, n){
-  var cls = "code" + (r.id === ultimoId ? " nuevo" : "") + (r.id === repeId ? " repe" : "");
+function fila(r, n, conCheck){
+  var cls = "code" + (r.id === ultimoId ? " nuevo" : "") + (r.id === repeId ? " repe" : "") +
+            (conCheck && seleccion[r.id] ? " sel" : "");
   return '<article class="' + cls + '" data-t="' + (r.tipo === "qr" ? "qr" : "barras") + '" data-id="' + r.id + '">' +
+    (conCheck ? '<input type="checkbox" class="chk marca" ' + (seleccion[r.id] ? "checked" : "") +
+                ' aria-label="Seleccionar código ' + n + '">' : '') +
     '<div class="n">' + n + '</div>' +
     '<div class="body">' +
       '<div class="val">' + esc(r.codigo) + '</div>' +
@@ -731,37 +766,114 @@ function ordenados(){
 
 function renderMini(){
   var todos = ordenados();
-  $("miniInfo").textContent = todos.length ? todos.length + " en total" : "";
+  var cont = $("mini");
+  $("miniInfo").textContent = todos.length ? todos.length + (todos.length === 1 ? " código" : " códigos") : "";
   if(!todos.length){
-    $("mini").innerHTML = '<div class="empty-state"><h3>Lista vacía</h3>' +
+    cont.innerHTML = '<div class="empty-state"><h3>Lista vacía</h3>' +
       '<p>Cada código que leas se agrega aquí abajo, uno debajo del otro. Si repites uno, la app te avisa.</p></div>';
     return;
   }
-  var ult = todos.slice(-6);
-  var base = todos.length - ult.length;
-  $("mini").innerHTML = ult.map(function(r, i){ return fila(r, base + i + 1); }).join("");
-  var cont = $("mini");
-  cont.scrollTop = cont.scrollHeight;
+  // si el usuario está mirando hacia arriba, no se le arrastra la vista al final
+  var pegadoAbajo = cont.scrollHeight - cont.scrollTop - cont.clientHeight < 70;
+  cont.innerHTML = todos.map(function(r, i){ return fila(r, i + 1); }).join("");
+  if(pegadoAbajo) cont.scrollTop = cont.scrollHeight;
 }
 
-function renderList(){
+function filtradas(){
   var q = $("q").value.trim().toLowerCase();
-  var todos = ordenados();
-  var rows = todos.filter(function(r){
+  return ordenados().filter(function(r){
     if(!q) return true;
     return ((r.codigo || "") + " " + (r.etiqueta || "") + " " + (r.nota || "")).toLowerCase().indexOf(q) >= 0;
   });
+}
+
+function renderList(){
+  var q = $("q").value.trim();
+  var todos = ordenados();
+  var rows = filtradas();
   $("qCount").textContent = q ? rows.length + " de " + todos.length : "";
+  $("list").classList.toggle("selmode", modoSel);
   if(!todos.length){
     $("list").innerHTML = '<div class="empty-state"><h3>Todavía no hay códigos</h3>' +
       '<p>Ve a Escanear, enciende la cámara y lee el primero.</p></div>';
+    pintarSelBar();
     return;
   }
   if(!rows.length){
-    $("list").innerHTML = '<div class="empty-state"><h3>Sin resultados</h3><p>Ningún código coincide con «' + esc($("q").value.trim()) + '».</p></div>';
+    $("list").innerHTML = '<div class="empty-state"><h3>Sin resultados</h3><p>Ningún código coincide con «' + esc(q) + '».</p></div>';
+    pintarSelBar();
     return;
   }
-  $("list").innerHTML = rows.map(function(r){ return fila(r, todos.indexOf(r) + 1); }).join("");
+  $("list").innerHTML = rows.map(function(r){ return fila(r, todos.indexOf(r) + 1, modoSel); }).join("");
+  pintarSelBar();
+}
+
+/* ---------- selección múltiple ---------- */
+function seleccionados(){ return Object.keys(seleccion).filter(function(id){ return seleccion[id]; }); }
+
+function pintarSelBar(){
+  var n = seleccionados().length;
+  var rows = filtradas();
+  $("selAllWrap").hidden = !modoSel;
+  $("btnDelSel").hidden = !modoSel;
+  $("btnSelCancel").hidden = !modoSel;
+  $("btnSelMode").hidden = modoSel;
+  $("btnDelSel").disabled = n === 0;
+  $("btnDelSel").textContent = n ? "Eliminar " + n : "Eliminar";
+  $("selInfo").textContent = modoSel
+    ? (n ? n + " seleccionado" + (n === 1 ? "" : "s") : "Toca las líneas que quieras eliminar")
+    : "";
+  var todosMarcados = rows.length > 0 && rows.every(function(r){ return seleccion[r.id]; });
+  $("selAll").checked = todosMarcados;
+  $("selAll").indeterminate = !todosMarcados && n > 0;
+}
+
+function entrarSeleccion(){
+  modoSel = true;
+  seleccion = {};
+  renderList();
+}
+function salirSeleccion(){
+  modoSel = false;
+  seleccion = {};
+  renderList();
+}
+function marcar(id, on){
+  if(on) seleccion[id] = true; else delete seleccion[id];
+  var card = $("list").querySelector('.code[data-id="' + id + '"]');
+  if(card){
+    card.classList.toggle("sel", !!on);
+    var chk = card.querySelector(".marca");
+    if(chk) chk.checked = !!on;
+  }
+  pintarSelBar();
+}
+function marcarTodos(on){
+  filtradas().forEach(function(r){ if(on) seleccion[r.id] = true; else delete seleccion[r.id]; });
+  renderList();
+}
+function borrarSeleccionados(){
+  var ids = seleccionados();
+  if(!ids.length) return;
+  confirmSheet("Eliminar seleccionados",
+    ids.length === 1 ? "Se eliminará 1 código de la lista."
+                     : "Se eliminarán " + ids.length + " códigos de la lista. Exporta primero si los necesitas.",
+    "Eliminar " + ids.length, function(){
+      var mapa = {};
+      ids.forEach(function(id){ mapa[id] = true; });
+      items.forEach(function(r){
+        if(mapa[r.id] && !r.deleted){
+          r.deleted = true;
+          r.updatedAt = nowIso();
+          pushOne(r);
+          if(ultimoId === r.id) ultimoId = null;
+        }
+      });
+      lsWrite();
+      salirSeleccion();
+      renderAll();
+      toast(ids.length === 1 ? "1 código eliminado." : ids.length + " códigos eliminados.");
+    }, true);
 }
 
 function renderStats(){
@@ -775,11 +887,14 @@ function renderStats(){
   if(!todos.length){
     $("prev").innerHTML = '<tr><td class="txt" colspan="5">Aún no hay códigos para exportar.</td></tr>';
     $("prevInfo").textContent = "";
+    $("btnPrevMas").hidden = true;
+    $("prevFade").hidden = true;
+    $("prevWrap").classList.remove("colapsada");
     return;
   }
   var TOPE = 1000;
   var muestra = todos.slice(0, TOPE);
-  $("prevInfo").textContent = todos.length === 1 ? "1 fila" : todos.length + " filas · desliza para ver todas";
+  $("prevInfo").textContent = todos.length === 1 ? "1 fila" : todos.length + " filas";
   $("prev").innerHTML = muestra.map(function(r, i){
     return '<tr><td class="txt">' + (i+1) + '</td><td>' + esc(r.codigo) + '</td>' +
            '<td class="txt">' + (r.tipo === "qr" ? "QR" : "Barras") + '</td>' +
@@ -787,6 +902,23 @@ function renderStats(){
            '<td class="txt">' + fechaCorta(r.createdAt) + '</td></tr>';
   }).join("") + (todos.length > TOPE
     ? '<tr><td class="txt" colspan="5">y ' + (todos.length - TOPE) + ' filas más (todas salen en el Excel)</td></tr>' : "");
+
+  ajustarPreview();
+}
+
+var prevAbierta = false;
+
+/* La tabla nunca desplaza por dentro: o está recortada, o se muestra
+   completa y quien desplaza es la página. */
+function ajustarPreview(){
+  var wrap = $("prevWrap"), btn = $("btnPrevMas");
+  wrap.classList.toggle("colapsada", !prevAbierta);
+  if(!wrap.clientHeight) return;   // la pestaña está oculta: se mide al abrirla
+  var recortada = !prevAbierta && wrap.scrollHeight > wrap.clientHeight + 4;
+  $("prevFade").hidden = !recortada;
+  if(!recortada && !prevAbierta){ btn.hidden = true; return; }
+  btn.hidden = false;
+  btn.textContent = prevAbierta ? "Ver menos" : "Ver las " + vivos().length + " filas";
 }
 
 function renderAll(){ renderMini(); renderList(); renderStats(); }
@@ -842,6 +974,7 @@ function borrar(id){
     r.deleted = true;
     r.updatedAt = nowIso();
     if(ultimoId === r.id) ultimoId = null;
+    delete seleccion[r.id];
     lsWrite(); pushOne(r); renderAll();
     toast("Código eliminado.");
   }, true);
@@ -1707,6 +1840,8 @@ function switchTab(name){
   document.querySelectorAll(".tabs button").forEach(function(b){
     b.setAttribute("aria-selected", b.getAttribute("data-tab") === name ? "true" : "false");
   });
+  // la tabla solo se puede medir cuando su pestaña está a la vista
+  if(name === "exp") ajustarPreview();
 }
 
 function agregarManual(){
@@ -1761,18 +1896,37 @@ function wire(){
 
   var clicLista = function(e){
     var btn = e.target.closest ? e.target.closest(".iconbtn") : null;
-    if(!btn) return;
-    var card = btn.closest(".code");
+    if(btn){
+      var c = btn.closest(".code");
+      if(!c) return;
+      var cid = c.getAttribute("data-id");
+      if(btn.classList.contains("edit")) editSheet(cid); else borrar(cid);
+      return;
+    }
+    if(!modoSel || this.id !== "list") return;
+    var card = e.target.closest ? e.target.closest(".code") : null;
     if(!card) return;
     var id = card.getAttribute("data-id");
-    if(btn.classList.contains("edit")) editSheet(id); else borrar(id);
+    var chk = card.querySelector(".marca");
+    var on = e.target === chk ? chk.checked : !seleccion[id];
+    marcar(id, on);
   };
   $("list").addEventListener("click", clicLista);
   $("mini").addEventListener("click", clicLista);
 
+  $("btnSelMode").onclick = entrarSeleccion;
+  $("btnSelCancel").onclick = salirSeleccion;
+  $("btnDelSel").onclick = borrarSeleccionados;
+  $("selAll").addEventListener("change", function(){ marcarTodos($("selAll").checked); });
+
   $("btnXlsx").onclick = function(){ deliver("codigos-" + stamp() + ".xlsx", xlsxBlob()); };
   $("btnCsv").onclick = function(){ deliver("codigos-" + stamp() + ".csv", csvText()); };
   $("btnCopy").onclick = copiar;
+  $("btnPrevMas").onclick = function(){
+    prevAbierta = !prevAbierta;
+    ajustarPreview();
+    if(!prevAbierta) $("prevWrap").scrollIntoView({ block: "nearest" });
+  };
   $("btnWipe").onclick = function(){
     if(!vivos().length){ toast("La lista ya está vacía."); return; }
     confirmSheet("Borrar toda la lista",
