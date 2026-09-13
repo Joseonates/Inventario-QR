@@ -96,6 +96,27 @@ button,input,textarea,select{font:inherit;color:inherit}
 .view{display:flex;flex-direction:column;gap:16px}
 .view[hidden]{display:none}
 
+/* ---- caja activa (cabecera del listado) ---- */
+.cajacard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:11px 12px;margin-bottom:16px}
+.cajatop{display:flex;align-items:center;gap:8px}
+.cajatag{font-family:var(--fd);font-weight:700;font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);flex:0 0 auto}
+.cajatop select{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;
+  padding:8px 9px;font-size:14px;font-family:var(--fb)}
+.cajaform{display:grid;gap:9px;margin-top:11px}
+@media(min-width:620px){.cajaform{grid-template-columns:repeat(3,1fr)}}
+.cf label{font-family:var(--fd);font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
+.cfrow{display:flex;gap:7px}
+.cf input{width:100%;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;
+  padding:9px 10px;font-family:var(--fm);font-size:15px}
+.cf input::placeholder{font-family:var(--fb);font-size:13.5px;color:var(--muted)}
+.cf.armado input{border-color:var(--barras);box-shadow:0 0 0 3px var(--barras-soft)}
+.scanbtn{flex:0 0 auto;padding:8px 10px}
+.scanbtn.on{background:var(--barras);border-color:var(--barras);color:#fff}
+:root[data-theme="dark"] .scanbtn.on,:root:not([data-theme="light"]) .scanbtn.on{color:#07201E}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .scanbtn.on{color:#fff}}
+.cajaresumen{font-size:12px;color:var(--muted);margin:8px 0 0;font-family:var(--fm);word-break:break-all}
+
 /* selector de tipo de código */
 .modepick{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .mode{display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;
@@ -297,6 +318,45 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     <button role="tab" aria-selected="false" data-tab="exp">Exportar</button>
   </nav>
 
+  <section class="cajacard">
+    <div class="cajatop">
+      <span class="cajatag">Caja</span>
+      <select id="selCaja" aria-label="Caja activa"></select>
+      <button class="iconbtn" id="btnNuevaCaja" title="Crear otra caja" aria-label="Crear otra caja">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="iconbtn" id="btnPlegarCaja" title="Mostrar u ocultar los datos" aria-expanded="true" aria-label="Mostrar u ocultar los datos de la caja">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>
+
+    <div class="cajaform" id="cajaForm">
+      <div class="cf" id="cfNum">
+        <label for="cNum">No de Caja</label>
+        <input id="cNum" autocomplete="off" placeholder="Escribe el número">
+      </div>
+      <div class="cf" id="cfId">
+        <label for="cId">ID Caja</label>
+        <div class="cfrow">
+          <input id="cId" autocomplete="off" spellcheck="false" placeholder="Escanea o escribe">
+          <button class="btn small scanbtn" data-arm="idcaja" title="Llenar escaneando" aria-label="Llenar ID Caja escaneando">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5v14M6.5 5v14M10 5v14M13.5 5v10M17 5v14M20.5 5v14"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="cf" id="cfSap">
+        <label for="cSap">Cód. SAP</label>
+        <div class="cfrow">
+          <input id="cSap" autocomplete="off" spellcheck="false" placeholder="Escanea o escribe">
+          <button class="btn small scanbtn" data-arm="codsap" title="Llenar escaneando" aria-label="Llenar código SAP escaneando">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5v14M6.5 5v14M10 5v14M13.5 5v10M17 5v14M20.5 5v14"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <p class="cajaresumen" id="cajaResumen" hidden></p>
+  </section>
+
   <!-- ===================== ESCANEAR ===================== -->
   <section class="view" id="v-scan">
     <div class="modepick" role="group" aria-label="Qué tipo de código vas a leer">
@@ -404,8 +464,8 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     </div>
 
     <div class="card">
-      <h3>Descargar la lista</h3>
-      <p class="hint">Un código por fila, en el orden en que los leíste.</p>
+      <h3 id="expCajaTit">Descargar esta caja</h3>
+      <p class="hint" id="expCajaSub">Un código por fila, en el orden en que los leíste.</p>
       <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button class="btn primary grow" id="btnXlsx">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
@@ -415,6 +475,19 @@ td.txt{font-family:var(--fb);color:var(--muted)}
         <button class="btn grow" id="btnCopy">Copiar</button>
       </div>
       <p class="hint" style="margin-top:10px">«Copiar» pega la lista directo en Excel o Google Sheets.</p>
+    </div>
+
+    <div class="card">
+      <h3>Descargar todas las cajas juntas</h3>
+      <p class="hint" id="expTodasSub">Un solo archivo con los listados de todas las cajas, cada fila con su No de Caja, ID y Cód. SAP.</p>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn primary grow" id="btnXlsxAll">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+          Excel (.xlsx)
+        </button>
+        <button class="btn grow" id="btnCsvAll">CSV</button>
+        <button class="btn grow" id="btnCopyAll">Copiar</button>
+      </div>
     </div>
 
     <div>
@@ -451,8 +524,9 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     <div class="card">
       <h3>Datos guardados</h3>
       <p class="hint" id="syncMsg">Revisando almacenamiento…</p>
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn danger" id="btnWipe">Borrar toda la lista</button>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn danger" id="btnWipe">Vaciar esta caja</button>
+        <button class="btn danger" id="btnDelCaja">Eliminar esta caja</button>
       </div>
     </div>
   </section>
@@ -472,8 +546,11 @@ td.txt{font-family:var(--fb);color:var(--muted)}
 var LS_KEY = "lector_codigos_v2";
 var LS_OLD = "inv_serial_mac_v1";
 var LS_OPT = "lector_opts_v2";
+var LS_CAJAS = "lector_cajas_v1";
 
-var items = [];      // {id, codigo, tipo:"qr"|"barras", formato, etiqueta, nota, createdAt, updatedAt, deleted}
+var cajas = [];      // {id, numero, idCaja, codSap, createdAt, updatedAt, deleted}
+var cajaId = "";     // caja activa
+var items = [];      // {id, cajaId, codigo, tipo:"qr"|"barras", formato, etiqueta, nota, createdAt, updatedAt, deleted}
 var db = null;
 var pending = {};
 var modo = "barras";
@@ -483,7 +560,19 @@ var $ = function(id){ return document.getElementById(id); };
 
 function uid(){ return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function nowIso(){ return new Date().toISOString(); }
-function vivos(){ return items.filter(function(r){ return !r.deleted; }); }
+function vivos(){ return items.filter(function(r){ return !r.deleted && r.cajaId === cajaId; }); }
+function vivosTodos(){ return items.filter(function(r){ return !r.deleted; }); }
+function cajasVivas(){ return cajas.filter(function(c){ return !c.deleted; }); }
+function cajaActual(){
+  var c = cajas.filter(function(x){ return x.id === cajaId; });
+  return c.length ? c[0] : null;
+}
+function nombreCaja(c){
+  if(!c) return "Caja";
+  var n = (c.numero || "").trim();
+  return n ? "Caja " + n : "Caja sin número";
+}
+function codigosDe(id){ return items.filter(function(r){ return !r.deleted && r.cajaId === id; }); }
 
 function esc(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
@@ -526,13 +615,47 @@ function migrarViejo(){
   }catch(e){ return []; }
 }
 function lsWrite(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(items)); }catch(e){} }
+function cajasRead(){
+  try{
+    var raw = localStorage.getItem(LS_CAJAS);
+    if(!raw) return [];
+    var v = JSON.parse(raw);
+    return Array.isArray(v) ? v : [];
+  }catch(e){ return []; }
+}
+function cajasWrite(){ try{ localStorage.setItem(LS_CAJAS, JSON.stringify(cajas)); }catch(e){} }
+
+function nuevaCaja(numero){
+  var c = { id: uid(), numero: numero || "", idCaja: "", codSap: "",
+            createdAt: nowIso(), updatedAt: nowIso() };
+  cajas.push(c);
+  cajasWrite();
+  pushCaja(c);
+  return c;
+}
+
+/* Toda la información vive dentro de una caja. Si no hay ninguna
+   (primera vez, o datos de una versión anterior) se crea la primera. */
+function prepararCajas(){
+  cajas = cajasRead();
+  if(!cajasVivas().length) nuevaCaja("1");
+  var guardada = optRead().caja;
+  var existe = cajasVivas().filter(function(c){ return c.id === guardada; });
+  cajaId = existe.length ? guardada : cajasVivas()[0].id;
+
+  var huerfanos = items.filter(function(r){ return !r.cajaId; });
+  if(huerfanos.length){
+    huerfanos.forEach(function(r){ r.cajaId = cajaId; r.updatedAt = nowIso(); pushOne(r); });
+    lsWrite();
+  }
+}
 function optRead(){ try{ return JSON.parse(localStorage.getItem(LS_OPT) || "{}") || {}; }catch(e){ return {}; } }
 function optWrite(){
   try{
     localStorage.setItem(LS_OPT, JSON.stringify({
       sound: $("optSound").checked, split: $("optSplit").checked,
       compat: $("optCompat").checked, banda: $("optBanda").checked,
-      bandaY: banda.y, modo: modo
+      bandaY: banda.y, modo: modo, caja: cajaId, plegada: cajaPlegada
     }));
   }catch(e){}
 }
@@ -593,6 +716,10 @@ function pushOne(r){
                                           function(){ pending[r.id] = true; });
   }catch(e){ pending[r.id] = true; }
 }
+function pushCaja(c){
+  if(!db) return;
+  try{ db.doc("cajas/" + c.id).set(c).then(function(){}, function(){}); }catch(e){}
+}
 function pushPending(){
   if(!db) return;
   Object.keys(pending).forEach(function(id){
@@ -608,6 +735,29 @@ function initCloud(){
     if(!cap){ msg.textContent = solo; return; }
     db = cap;
     msg.textContent = "Guardado en este celular y respaldado en la nube. Se sincroniza solo cuando hay internet.";
+    try{
+      db.collection("cajas").get().then(function(res){
+        var docs = (res && res.docs ? res.docs : res) || [];
+        var arr = docs.map(function(d){ return d.data ? d.data() : d; }).filter(Boolean);
+        var byId = {};
+        cajas.forEach(function(c){ byId[c.id] = c; });
+        var cambio = false;
+        arr.forEach(function(rc){
+          if(!rc || !rc.id) return;
+          var local = byId[rc.id];
+          if(!local){ cajas.push(rc); byId[rc.id] = rc; cambio = true; }
+          else if((rc.updatedAt || "") > (local.updatedAt || "")){
+            for(var k in rc) local[k] = rc[k];
+            cambio = true;
+          }
+        });
+        cajas.forEach(function(c){
+          var rc = byId[c.id];
+          if(!arr.filter(function(x){ return x.id === c.id; }).length) pushCaja(c);
+        });
+        if(cambio){ cajasWrite(); pintarCaja(); renderAll(); }
+      }, function(){});
+    }catch(e){}
     try{
       db.collection("codigos").get().then(function(res){
         var docs = (res && res.docs ? res.docs : res) || [];
@@ -651,8 +801,16 @@ function formatosDelModo(){ return modo === "qr" ? FMT_QR : FMT_BARRAS; }
  * ================================================================== */
 function buscarPorCodigo(cod){
   var k = clave(cod);
-  var hit = vivos().filter(function(r){ return clave(r.codigo) === k; });
-  return hit.length ? hit[0] : null;
+  var aqui = vivos().filter(function(r){ return clave(r.codigo) === k; });
+  if(aqui.length) return aqui[0];
+  // también avisa si el código ya se leyó en otra caja: no se cuenta dos veces
+  var otra = vivosTodos().filter(function(r){ return clave(r.codigo) === k; });
+  return otra.length ? otra[0] : null;
+}
+function dondeEsta(r){
+  if(!r || r.cajaId === cajaId) return "";
+  var c = cajas.filter(function(x){ return x.id === r.cajaId; })[0];
+  return c ? " (" + nombreCaja(c) + ")" : "";
 }
 
 /* Un QR de equipo suele traer varios datos dentro (SN:…, MAC:…, P/N:…).
@@ -679,6 +837,130 @@ function trocear(texto){
 var ultimoId = null;
 var repeId = null;
 var modoSel = false, seleccion = {};
+var destino = "lista";   // "lista" | "idcaja" | "codsap"
+var cajaPlegada = false;
+
+/* ---------- cabecera de la caja ---------- */
+function pintarCaja(){
+  var lista = cajasVivas().slice().sort(function(a, b){ return (a.createdAt || "").localeCompare(b.createdAt || ""); });
+  var sel = $("selCaja");
+  sel.innerHTML = lista.map(function(c){
+    var n = codigosDe(c.id).length;
+    return '<option value="' + c.id + '"' + (c.id === cajaId ? " selected" : "") + '>' +
+           esc(nombreCaja(c)) + " · " + n + (n === 1 ? " código" : " códigos") + '</option>';
+  }).join("");
+
+  var c = cajaActual();
+  ["cNum|numero", "cId|idCaja", "cSap|codSap"].forEach(function(par){
+    var p = par.split("|"), el = $(p[0]);
+    if(document.activeElement === el) return;   // no se le quita lo que está escribiendo
+    el.value = c ? (c[p[1]] || "") : "";
+  });
+
+  $("cajaForm").hidden = cajaPlegada;
+  $("btnPlegarCaja").setAttribute("aria-expanded", cajaPlegada ? "false" : "true");
+  $("btnPlegarCaja").style.transform = cajaPlegada ? "rotate(-90deg)" : "";
+
+  var partes = [];
+  if(c && c.idCaja) partes.push("ID " + c.idCaja);
+  if(c && c.codSap) partes.push("SAP " + c.codSap);
+  $("cajaResumen").hidden = !(cajaPlegada && partes.length);
+  $("cajaResumen").textContent = partes.join("  ·  ");
+}
+
+function guardarCaja(){
+  var c = cajaActual();
+  if(!c) return;
+  c.numero = $("cNum").value.trim();
+  c.idCaja = limpioUno($("cId").value);
+  c.codSap = limpioUno($("cSap").value);
+  c.updatedAt = nowIso();
+  cajasWrite();
+  pushCaja(c);
+  pintarCaja();
+}
+
+function cambiarCaja(id){
+  cajaId = id;
+  destino = "lista";
+  modoSel = false; seleccion = {};
+  lastCode = ""; lastAt = 0; confirmVal = ""; confirmVeces = 0;
+  repeAviso = ""; ultimoId = null; repeId = null;
+  optWrite();
+  pintarCaja();
+  pintarDestino();
+  renderAll();
+}
+
+function crearCaja(){
+  var usados = cajasVivas().map(function(c){ return parseInt(c.numero, 10); })
+                 .filter(function(n){ return !isNaN(n); });
+  var siguiente = usados.length ? Math.max.apply(null, usados) + 1 : cajasVivas().length + 1;
+  var c = nuevaCaja(String(siguiente));
+  cambiarCaja(c.id);
+  cajaPlegada = false;
+  pintarCaja();
+  $("cNum").focus();
+  toast("Caja nueva creada. Su listado empieza vacío.");
+}
+
+function borrarCaja(){
+  var c = cajaActual();
+  if(!c) return;
+  if(cajasVivas().length < 2){ toast("Debe quedar al menos una caja.", true); return; }
+  var n = codigosDe(c.id).length;
+  confirmSheet("Eliminar " + nombreCaja(c),
+    n ? "Se eliminarán también sus " + n + " códigos. Exporta primero si los necesitas."
+      : "Esta caja no tiene códigos.",
+    "Eliminar", function(){
+      c.deleted = true; c.updatedAt = nowIso();
+      cajasWrite(); pushCaja(c);
+      items.forEach(function(r){
+        if(r.cajaId === c.id && !r.deleted){ r.deleted = true; r.updatedAt = nowIso(); pushOne(r); }
+      });
+      lsWrite();
+      cambiarCaja(cajasVivas()[0].id);
+      toast("Caja eliminada.");
+    }, true);
+}
+
+/* ---------- a dónde va lo que se escanea ---------- */
+function pintarDestino(){
+  document.querySelectorAll(".scanbtn").forEach(function(b){
+    b.classList.toggle("on", destino === b.getAttribute("data-arm"));
+  });
+  $("cfId").classList.toggle("armado", destino === "idcaja");
+  $("cfSap").classList.toggle("armado", destino === "codsap");
+  if(running){
+    msgHoldUntil = 0;
+    $("camstateMsg").textContent = idleMsg();
+  }
+}
+function armar(cual){
+  destino = (destino === cual) ? "lista" : cual;
+  lastCode = ""; lastAt = 0; confirmVal = ""; confirmVeces = 0;
+  pintarDestino();
+  if(destino !== "lista"){
+    if(cajaPlegada){ cajaPlegada = false; pintarCaja(); }
+    toast(destino === "idcaja" ? "El próximo código llena ID Caja." : "El próximo código llena Cód. SAP.");
+    if(!running) startCamera();
+  }
+}
+function llenarCampo(code, formato){
+  var c = cajaActual();
+  if(!c) return;
+  if(destino === "idcaja"){ c.idCaja = code; $("cId").value = code; }
+  else { c.codSap = code; $("cSap").value = code; }
+  c.updatedAt = nowIso();
+  cajasWrite(); pushCaja(c);
+  beep(true);
+  toast((destino === "idcaja" ? "ID Caja: " : "Cód. SAP: ") + code);
+  $("camstateMsg").textContent = fmtNombre(formato) + " → " + (destino === "idcaja" ? "ID Caja" : "Cód. SAP") + ": " + code;
+  msgHoldUntil = perfNow() + 2200;
+  destino = "lista";
+  pintarDestino();
+  pintarCaja();
+}
 
 function agregar(texto, formato, origenManual, callado){
   var piezas = trocear(texto);
@@ -689,7 +971,7 @@ function agregar(texto, formato, origenManual, callado){
     var ya = buscarPorCodigo(pz.valor);
     if(ya){ repetidos.push(ya); return; }
     var r = {
-      id: uid(), codigo: pz.valor,
+      id: uid(), cajaId: cajaId, codigo: pz.valor,
       tipo: origenManual ? (modo === "qr" ? "qr" : "barras") : (esQr(formato) ? "qr" : "barras"),
       formato: normFmt(formato), etiqueta: pz.etiqueta || "", nota: "",
       createdAt: nowIso(), updatedAt: nowIso()
@@ -721,8 +1003,8 @@ function agregar(texto, formato, origenManual, callado){
     repeId = repetidos[0].id;
     beep(false);
     renderAll();
-    toast("Ya fue leído: " + repetidos[0].codigo, true);
-    if(!origenManual) $("camstateMsg").textContent = "Ya estaba en la lista: " + repetidos[0].codigo;
+    toast("Ya fue leído: " + repetidos[0].codigo + dondeEsta(repetidos[0]), true);
+    if(!origenManual) $("camstateMsg").textContent = "Ya estaba en la lista: " + repetidos[0].codigo + dondeEsta(repetidos[0]);
   } else if(repetidos.length && nuevos){
     toast(nuevos + " agregados · " + repetidos.length + " ya estaban");
   }
@@ -878,6 +1160,15 @@ function borrarSeleccionados(){
 
 function renderStats(){
   var todos = ordenados();
+  var c = cajaActual();
+  var nCajas = cajasVivas().length, nTodos = vivosTodos().length;
+  $("expCajaTit").textContent = "Descargar " + nombreCaja(c).toLowerCase();
+  $("expCajaSub").textContent = todos.length
+    ? todos.length + (todos.length === 1 ? " código" : " códigos") + " de esta caja, en el orden en que los leíste."
+    : "Esta caja todavía no tiene códigos.";
+  $("expTodasSub").textContent = nCajas + (nCajas === 1 ? " caja" : " cajas") + " · " +
+    nTodos + (nTodos === 1 ? " código" : " códigos") +
+    " en un solo archivo, cada fila con su No de Caja, ID y Cód. SAP.";
   $("cCount").textContent = todos.length;
   $("cLabel").textContent = todos.length === 1 ? "código" : "códigos";
   $("sTotal").textContent = todos.length;
@@ -921,7 +1212,7 @@ function ajustarPreview(){
   btn.textContent = prevAbierta ? "Ver menos" : "Ver las " + vivos().length + " filas";
 }
 
-function renderAll(){ renderMini(); renderList(); renderStats(); }
+function renderAll(){ pintarCaja(); renderMini(); renderList(); renderStats(); }
 
 /* ================================================================== *
  * Modales
@@ -983,20 +1274,33 @@ function borrar(id){
 /* ================================================================== *
  * Exportación
  * ================================================================== */
-var HEADERS = ["N°","Código","Tipo","Etiqueta","Formato","Nota","Fecha","Hora"];
-function exportRows(){
-  return ordenados().map(function(r, i){
-    return [String(i+1), r.codigo || "", r.tipo === "qr" ? "QR" : "Barras",
+var HEADERS = ["No de Caja","ID Caja","Cód. SAP","N°","Código","Tipo","Etiqueta","Formato","Nota","Fecha","Hora"];
+
+function filasDeCaja(c){
+  var lista = codigosDe(c.id).slice().sort(function(a, b){ return (a.createdAt || "").localeCompare(b.createdAt || ""); });
+  return lista.map(function(r, i){
+    return [c.numero || "", c.idCaja || "", c.codSap || "", String(i+1),
+            r.codigo || "", r.tipo === "qr" ? "QR" : "Barras",
             r.etiqueta || "", r.formato ? fmtNombre(r.formato) : "",
             r.nota || "", fechaCorta(r.createdAt), horaCorta(r.createdAt)];
   });
+}
+function exportRows(todas){
+  if(!todas){
+    var c = cajaActual();
+    return c ? filasDeCaja(c) : [];
+  }
+  var out = [];
+  cajasVivas().slice().sort(function(a, b){ return (a.createdAt || "").localeCompare(b.createdAt || ""); })
+    .forEach(function(c){ out = out.concat(filasDeCaja(c)); });
+  return out;
 }
 function stamp(){
   var d = new Date();
   return d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + "-" + p2(d.getHours()) + p2(d.getMinutes());
 }
-function csvText(){
-  var rows = [HEADERS].concat(exportRows());
+function csvText(todas){
+  var rows = [HEADERS].concat(exportRows(todas));
   return "﻿" + rows.map(function(r){
     return r.map(function(c){
       var s = String(c == null ? "" : c);
@@ -1004,8 +1308,8 @@ function csvText(){
     }).join(";");
   }).join("\r\n");
 }
-function tsvText(){
-  var rows = [HEADERS].concat(exportRows());
+function tsvText(todas){
+  var rows = [HEADERS].concat(exportRows(todas));
   return rows.map(function(r){ return r.map(function(c){ return String(c).replace(/\t/g, " "); }).join("\t"); }).join("\n");
 }
 
@@ -1063,13 +1367,14 @@ function colLetter(n){
   while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
   return s;
 }
-function xlsxBlob(){
-  var rows = [HEADERS].concat(exportRows());
+function xlsxBlob(todas){
+  var rows = [HEADERS].concat(exportRows(todas));
   var sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    '<cols><col min="1" max="1" width="6"/><col min="2" max="2" width="30"/><col min="3" max="3" width="10"/>' +
-    '<col min="4" max="4" width="14"/><col min="5" max="5" width="14"/><col min="6" max="6" width="26"/>' +
-    '<col min="7" max="7" width="12"/><col min="8" max="8" width="9"/></cols><sheetData>';
+    '<cols><col min="1" max="1" width="12"/><col min="2" max="2" width="18"/><col min="3" max="3" width="16"/>' +
+    '<col min="4" max="4" width="6"/><col min="5" max="5" width="30"/><col min="6" max="6" width="10"/>' +
+    '<col min="7" max="7" width="14"/><col min="8" max="8" width="14"/><col min="9" max="9" width="24"/>' +
+    '<col min="10" max="10" width="12"/><col min="11" max="11" width="9"/></cols><sheetData>';
   rows.forEach(function(r, ri){
     sheet += '<row r="' + (ri + 1) + '">';
     r.forEach(function(c, ci){
@@ -1131,8 +1436,8 @@ function ensureDownloads(){
   if(!(window.claude && typeof window.claude.use === "function")) return Promise.resolve(null);
   return window.claude.use("downloads").then(function(d){ downloads = d; return d; }, function(){ return null; });
 }
-function deliver(filename, data){
-  if(!vivos().length){ toast("No hay códigos para exportar todavía."); return; }
+function deliver(filename, data, vacio){
+  if(vacio){ toast("No hay códigos para exportar todavía."); return; }
   ensureDownloads().then(function(d){
     if(d){
       d.save({ filename: filename, data: data }).then(function(){ toast("Archivo guardado: " + filename); },
@@ -1154,9 +1459,10 @@ function fallbackDownload(filename, data){
     toast("Descargando " + filename + "…");
   }catch(e){ toast("No se pudo descargar aquí. Usa «Copiar» y pega en Excel.", true); }
 }
-function copiar(){
-  if(!vivos().length){ toast("No hay códigos para copiar todavía."); return; }
-  var txt = tsvText();
+function copiar(todas){
+  var n = todas ? vivosTodos().length : vivos().length;
+  if(!n){ toast("No hay códigos para copiar todavía."); return; }
+  var txt = tsvText(todas);
   var listo = function(){ toast("Lista copiada. Pégala en Excel o Google Sheets."); };
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(listo, function(){ copiaVieja(txt, listo); });
@@ -1233,7 +1539,11 @@ function agregarVisibles(){
 }
 
 function perfNow(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
-function idleMsg(){ return modo === "qr" ? "Apunta al código QR…" : "Apunta al código de barras…"; }
+function idleMsg(){
+  if(destino === "idcaja") return "Apunta al código del ID de la caja…";
+  if(destino === "codsap") return "Apunta al código SAP…";
+  return modo === "qr" ? "Apunta al código QR…" : "Apunta al código de barras…";
+}
 
 function setCamUI(on, msg){
   $("cam").classList.toggle("idle", !on);
@@ -1526,6 +1836,8 @@ function alLeer(raw, formato){
   var t = Date.now();
   if(code === lastCode && t - lastAt < 2200) return;
   lastCode = code; lastAt = t;
+  // si un campo de la caja está armado, el código va ahí y no a la lista
+  if(destino !== "lista"){ llenarCampo(limpioUno(code), formato); return; }
   // si ya se avisó hace poco que este código estaba repetido, no volver a sonar
   if(code === repeAviso && t - repeAvisoAt < 6000){
     $("camstateMsg").textContent = "Ya estaba en la lista: " + code;
@@ -1919,19 +2231,43 @@ function wire(){
   $("btnDelSel").onclick = borrarSeleccionados;
   $("selAll").addEventListener("change", function(){ marcarTodos($("selAll").checked); });
 
-  $("btnXlsx").onclick = function(){ deliver("codigos-" + stamp() + ".xlsx", xlsxBlob()); };
-  $("btnCsv").onclick = function(){ deliver("codigos-" + stamp() + ".csv", csvText()); };
-  $("btnCopy").onclick = copiar;
+  var nombreArchivo = function(){
+    var c = cajaActual();
+    var n = c && c.numero ? String(c.numero).replace(/[^A-Za-z0-9_-]+/g, "-") : "sin-numero";
+    return "caja-" + n + "-" + stamp();
+  };
+  $("btnXlsx").onclick = function(){ deliver(nombreArchivo() + ".xlsx", xlsxBlob(false), !vivos().length); };
+  $("btnCsv").onclick = function(){ deliver(nombreArchivo() + ".csv", csvText(false), !vivos().length); };
+  $("btnCopy").onclick = function(){ copiar(false); };
+  $("btnXlsxAll").onclick = function(){ deliver("todas-las-cajas-" + stamp() + ".xlsx", xlsxBlob(true), !vivosTodos().length); };
+  $("btnCsvAll").onclick = function(){ deliver("todas-las-cajas-" + stamp() + ".csv", csvText(true), !vivosTodos().length); };
+  $("btnCopyAll").onclick = function(){ copiar(true); };
+
+  $("selCaja").addEventListener("change", function(){ cambiarCaja($("selCaja").value); });
+  $("btnNuevaCaja").onclick = crearCaja;
+  $("btnPlegarCaja").onclick = function(){ cajaPlegada = !cajaPlegada; pintarCaja(); optWrite(); };
+  ["cNum","cId","cSap"].forEach(function(id){
+    $(id).addEventListener("change", guardarCaja);
+    $(id).addEventListener("blur", guardarCaja);
+  });
+  $("cNum").addEventListener("input", function(){
+    var c = cajaActual();
+    if(c){ c.numero = $("cNum").value.trim(); }
+  });
+  document.querySelectorAll(".scanbtn").forEach(function(b){
+    b.addEventListener("click", function(){ armar(b.getAttribute("data-arm")); });
+  });
   $("btnPrevMas").onclick = function(){
     prevAbierta = !prevAbierta;
     ajustarPreview();
     if(!prevAbierta) $("prevWrap").scrollIntoView({ block: "nearest" });
   };
+  $("btnDelCaja").onclick = borrarCaja;
   $("btnWipe").onclick = function(){
-    if(!vivos().length){ toast("La lista ya está vacía."); return; }
-    confirmSheet("Borrar toda la lista",
-      "Se eliminarán los " + vivos().length + " códigos guardados. Exporta primero si los necesitas.",
-      "Borrar todo", function(){
+    if(!vivos().length){ toast("Esta caja ya está vacía."); return; }
+    confirmSheet("Vaciar " + nombreCaja(cajaActual()),
+      "Se eliminarán sus " + vivos().length + " códigos, pero la caja se conserva con su ID y Cód. SAP.",
+      "Vaciar", function(){
         vivos().forEach(function(r){ r.deleted = true; r.updatedAt = nowIso(); pushOne(r); });
         ultimoId = null; repeId = null;
         lsWrite(); renderAll();
@@ -1961,10 +2297,14 @@ function boot(){
   if(typeof o.compat === "boolean") $("optCompat").checked = o.compat;
   if(typeof o.banda === "boolean") $("optBanda").checked = o.banda;
   if(typeof o.bandaY === "number" && o.bandaY > 0.05 && o.bandaY < 0.95) banda.y = o.bandaY;
+  if(typeof o.plegada === "boolean") cajaPlegada = o.plegada;
 
   items = lsRead();
+  prepararCajas();
   lsWrite();
   wire();
+  pintarCaja();
+  pintarDestino();
   setModo(o.modo === "qr" ? "qr" : "barras");
   renderAll();
   try{
