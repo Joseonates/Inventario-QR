@@ -872,16 +872,37 @@ function pintarCaja(){
   $("cajaResumen").textContent = partes.join("  ·  ");
 }
 
-function guardarCaja(){
+function guardarCaja(campoEditado){
   var c = cajaActual();
   if(!c) return;
+  var id = limpioUno($("cId").value);
+  var sap = limpioUno($("cSap").value);
+
+  // el ID de la caja y el código SAP son dos datos distintos: nunca el mismo código
+  if(id && sap && clave(id) === clave(sap)){
+    beep(false);
+    toast("El ID Caja y el Cód. SAP no pueden ser el mismo código.", true);
+    if(campoEditado === "cId"){ id = ""; $("cId").value = ""; }
+    else { sap = ""; $("cSap").value = ""; }
+  }
+
   c.numero = $("cNum").value.trim();
-  c.idCaja = limpioUno($("cId").value);
-  c.codSap = limpioUno($("cSap").value);
+  c.idCaja = id;
+  c.codSap = sap;
   c.updatedAt = nowIso();
   cajasWrite();
   pushCaja(c);
   pintarCaja();
+  avisarIdRepetido(c);
+}
+
+/* Aviso (no bloquea) si otra caja ya tiene ese mismo ID */
+function avisarIdRepetido(c){
+  if(!c || !c.idCaja) return;
+  var otra = cajasVivas().filter(function(x){
+    return x.id !== c.id && x.idCaja && clave(x.idCaja) === clave(c.idCaja);
+  });
+  if(otra.length) toast("Ojo: ese ID también está en " + nombreCaja(otra[0]) + ".", true);
 }
 
 function cambiarCaja(id){
@@ -953,6 +974,20 @@ function armar(cual){
 function llenarCampo(code, formato){
   var c = cajaActual();
   if(!c) return;
+
+  // Al armar el segundo campo la cámara suele seguir viendo el código anterior:
+  // si es el mismo que ya está en el otro campo, se rechaza y el campo sigue armado.
+  var otro = destino === "idcaja" ? (c.codSap || "") : (c.idCaja || "");
+  if(otro && clave(code) === clave(otro)){
+    beep(false);
+    toast(destino === "idcaja"
+      ? "Ese código ya está guardado como Cód. SAP. Apunta al código del ID de la caja."
+      : "Ese código ya está guardado como ID Caja. Apunta al código SAP.", true);
+    $("camstateMsg").textContent = "Es el otro código de la caja: apunta al correcto.";
+    msgHoldUntil = perfNow() + 2500;
+    return;
+  }
+
   if(destino === "idcaja"){ c.idCaja = code; $("cId").value = code; }
   else { c.codSap = code; $("cSap").value = code; }
   c.updatedAt = nowIso();
@@ -964,6 +999,7 @@ function llenarCampo(code, formato){
   destino = "lista";
   pintarDestino();
   pintarCaja();
+  avisarIdRepetido(c);
 }
 
 function agregar(texto, formato, origenManual, callado){
@@ -2251,8 +2287,9 @@ function wire(){
   $("btnNuevaCaja").onclick = crearCaja;
   $("btnPlegarCaja").onclick = function(){ cajaPlegada = !cajaPlegada; pintarCaja(); optWrite(); };
   ["cNum","cId","cSap"].forEach(function(id){
-    $(id).addEventListener("change", guardarCaja);
-    $(id).addEventListener("blur", guardarCaja);
+    var guardar = function(){ guardarCaja(id); };
+    $(id).addEventListener("change", guardar);
+    $(id).addEventListener("blur", guardar);
   });
   $("cNum").addEventListener("input", function(){
     var c = cajaActual();
