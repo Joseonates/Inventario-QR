@@ -115,6 +115,11 @@ button,input,textarea,select{font:inherit;color:inherit}
 .scanbtn.on{background:var(--barras);border-color:var(--barras);color:#fff}
 :root[data-theme="dark"] .scanbtn.on,:root:not([data-theme="light"]) .scanbtn.on{color:#07201E}
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .scanbtn.on{color:#fff}}
+.opcion{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface-2);
+  border-radius:11px;padding:11px 13px;margin-bottom:8px;cursor:pointer}
+.opcion b{display:block;font-size:15px;font-weight:600}
+.opcion span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+.opcion.peligro b{color:var(--danger)}
 .cajaresumen{font-size:12px;color:var(--muted);margin:8px 0 0;font-family:var(--fm);word-break:break-all}
 
 /* selector de tipo de código */
@@ -325,6 +330,9 @@ td.txt{font-family:var(--fb);color:var(--muted)}
       <button class="iconbtn" id="btnNuevaCaja" title="Crear otra caja" aria-label="Crear otra caja">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
+      <button class="iconbtn" id="btnOpcCaja" title="Opciones de la caja" aria-label="Opciones de la caja">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+      </button>
       <button class="iconbtn" id="btnPlegarCaja" title="Mostrar u ocultar los datos" aria-expanded="true" aria-label="Mostrar u ocultar los datos de la caja">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
@@ -432,6 +440,19 @@ td.txt{font-family:var(--fb);color:var(--muted)}
       <label><input type="checkbox" id="optBanda" checked> Franja de lectura en códigos de barras</label>
       <label><input type="checkbox" id="optCompat"> Modo compatibilidad</label>
     </div>
+
+    <div class="card">
+      <h3 id="opcTit">Opciones de la caja</h3>
+      <p class="hint" id="opcSub">Lo que hagas aquí afecta solo a esta caja.</p>
+      <div style="margin-top:12px">
+        <button class="opcion" id="btnWipe"><b>Vaciar esta caja</b>
+          <span>Borra solo los códigos. Conserva el No de Caja, el ID y el Cód. SAP.</span></button>
+        <button class="opcion" id="btnLimpiar"><b>Limpiar todo en esta caja</b>
+          <span>Borra los códigos y también los tres datos de arriba. La caja queda en blanco para volver a usarla.</span></button>
+        <button class="opcion peligro" id="btnDelCaja"><b>Eliminar esta caja</b>
+          <span>La quita de la lista de cajas junto con sus códigos.</span></button>
+      </div>
+    </div>
   </section>
 
   <!-- ===================== LISTA ===================== -->
@@ -525,12 +546,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     <div class="card">
       <h3>Datos guardados</h3>
       <p class="hint" id="syncMsg">Revisando almacenamiento…</p>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-        <button class="btn danger" id="btnWipe">Vaciar esta caja</button>
-        <button class="btn danger" id="btnLimpiar">Limpiar todo en esta caja</button>
-        <button class="btn danger" id="btnDelCaja">Eliminar esta caja</button>
-      </div>
-      <p class="hint" style="margin-top:10px">Vaciar borra solo los códigos. Limpiar todo borra además el No de Caja, el ID y el Cód. SAP, y deja la caja en blanco para volver a usarla.</p>
+      <p class="hint" style="margin-top:10px">Para vaciar, limpiar o eliminar una caja, usa las opciones al final de la pestaña Escanear, o el botón ⋯ junto al nombre de la caja.</p>
     </div>
   </section>
 </div>
@@ -979,6 +995,38 @@ function limpiarCaja(){
     }, true);
 }
 
+function opcionesCaja(){
+  var c = cajaActual();
+  var n = vivos().length;
+  $("sheet").innerHTML =
+    '<h3>' + esc(nombreCaja(c)) + '</h3>' +
+    '<p>' + n + (n === 1 ? " código" : " códigos") + ' en esta caja.</p>' +
+    '<button class="opcion" id="oVaciar"><b>Vaciar esta caja</b>' +
+      '<span>Borra solo los códigos. Conserva el No de Caja, el ID y el Cód. SAP.</span></button>' +
+    '<button class="opcion" id="oLimpiar"><b>Limpiar todo en esta caja</b>' +
+      '<span>Borra los códigos y también los tres datos de arriba. La caja queda en blanco para volver a usarla.</span></button>' +
+    '<button class="opcion peligro" id="oEliminar"><b>Eliminar esta caja</b>' +
+      '<span>La quita de la lista de cajas junto con sus códigos.</span></button>' +
+    '<div class="acts"><button class="btn ghost" id="mCancel">Cerrar</button></div>';
+  $("scrim").hidden = false;
+  $("mCancel").onclick = closeSheet;
+  $("oVaciar").onclick = function(){ closeSheet(); vaciarCaja(); };
+  $("oLimpiar").onclick = function(){ closeSheet(); limpiarCaja(); };
+  $("oEliminar").onclick = function(){ closeSheet(); borrarCaja(); };
+}
+
+function vaciarCaja(){
+  if(!vivos().length){ toast("Esta caja ya está vacía."); return; }
+  confirmSheet("Vaciar " + nombreCaja(cajaActual()),
+    "Se eliminarán sus " + vivos().length + " códigos, pero la caja se conserva con su ID y Cód. SAP.",
+    "Vaciar", function(){
+      vivos().forEach(function(r){ r.deleted = true; r.updatedAt = nowIso(); pushOne(r); });
+      ultimoId = null; repeId = null; modoSel = false; seleccion = {};
+      lsWrite(); renderAll();
+      toast("Caja vacía.");
+    }, true);
+}
+
 /* ---------- a dónde va lo que se escanea ---------- */
 function pintarDestino(){
   document.querySelectorAll(".scanbtn").forEach(function(b){
@@ -1253,6 +1301,11 @@ function renderStats(){
   var todos = ordenados();
   var c = cajaActual();
   var nCajas = cajasVivas().length, nTodos = vivosTodos().length;
+  $("opcTit").textContent = "Opciones de " + nombreCaja(c).toLowerCase();
+  $("opcSub").textContent = todos.length
+    ? "Lo que hagas aquí afecta solo a esta caja y a sus " + todos.length +
+      (todos.length === 1 ? " código." : " códigos.")
+    : "Esta caja todavía no tiene códigos.";
   $("expCajaTit").textContent = "Descargar " + nombreCaja(c).toLowerCase();
   $("expCajaSub").textContent = todos.length
     ? todos.length + (todos.length === 1 ? " código" : " códigos") + " de esta caja, en el orden en que los leíste."
@@ -2356,17 +2409,8 @@ function wire(){
   };
   $("btnDelCaja").onclick = borrarCaja;
   $("btnLimpiar").onclick = limpiarCaja;
-  $("btnWipe").onclick = function(){
-    if(!vivos().length){ toast("Esta caja ya está vacía."); return; }
-    confirmSheet("Vaciar " + nombreCaja(cajaActual()),
-      "Se eliminarán sus " + vivos().length + " códigos, pero la caja se conserva con su ID y Cód. SAP.",
-      "Vaciar", function(){
-        vivos().forEach(function(r){ r.deleted = true; r.updatedAt = nowIso(); pushOne(r); });
-        ultimoId = null; repeId = null;
-        lsWrite(); renderAll();
-        toast("Lista vacía.");
-      }, true);
-  };
+  $("btnWipe").onclick = vaciarCaja;
+  $("btnOpcCaja").onclick = opcionesCaja;
 
   $("scrim").addEventListener("click", function(e){ if(e.target === $("scrim")) closeSheet(); });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && !$("scrim").hidden) closeSheet(); });

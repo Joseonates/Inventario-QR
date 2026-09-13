@@ -1,7 +1,7 @@
 /* Service worker de "Escáner Serial y MAC".
    Guarda la app en el dispositivo para que abra y funcione sin señal.
    Al publicar una versión nueva, sube el número de CACHE. */
-var VERSION = "v1";
+var VERSION = "v2";
 var SHELL_CACHE = "serial-mac-shell-" + VERSION;
 var EXT_CACHE = "serial-mac-ext-" + VERSION;
 
