@@ -339,7 +339,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
         <label for="cId">ID Caja</label>
         <div class="cfrow">
           <input id="cId" autocomplete="off" spellcheck="false" placeholder="Escanea o escribe">
-          <button class="btn small scanbtn" data-arm="idcaja" title="Llenar escaneando" aria-label="Llenar ID Caja escaneando">
+          <button class="btn small scanbtn" data-arm="idcaja" title="Llenar con un código de barras" aria-label="Llenar ID Caja escaneando">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5v14M6.5 5v14M10 5v14M13.5 5v10M17 5v14M20.5 5v14"/></svg>
           </button>
         </div>
@@ -348,7 +348,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
         <label for="cSap">Cód. SAP</label>
         <div class="cfrow">
           <input id="cSap" autocomplete="off" spellcheck="false" placeholder="Escanea o escribe">
-          <button class="btn small scanbtn" data-arm="codsap" title="Llenar escaneando" aria-label="Llenar código SAP escaneando">
+          <button class="btn small scanbtn" data-arm="codsap" title="Llenar con un código de barras" aria-label="Llenar código SAP escaneando">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5v14M6.5 5v14M10 5v14M13.5 5v10M17 5v14M20.5 5v14"/></svg>
           </button>
         </div>
@@ -795,7 +795,12 @@ var FMT_LONG = {
 function normFmt(f){ return String(f || "").toLowerCase().replace(/[\s-]+/g, "_"); }
 function fmtNombre(f){ f = normFmt(f); return FMT_LONG[f] || (f ? f.toUpperCase().replace(/_/g, " ") : "Código"); }
 function esQr(f){ return /qr|matrix|aztec|pdf417/.test(normFmt(f)); }
-function formatosDelModo(){ return modo === "qr" ? FMT_QR : FMT_BARRAS; }
+function formatosDelModo(){
+  // El ID Caja y el Cód. SAP salen siempre de un código de barras,
+  // aunque la app esté puesta en modo QR.
+  if(destino !== "lista") return FMT_BARRAS;
+  return modo === "qr" ? FMT_QR : FMT_BARRAS;
+}
 
 /* ================================================================== *
  * Alta de códigos
@@ -912,6 +917,8 @@ function cambiarCaja(id){
   lastCode = ""; lastAt = 0; confirmVal = ""; confirmVeces = 0;
   repeAviso = ""; ultimoId = null; repeId = null;
   optWrite();
+  refrescarDetector();
+  pintarBanda();
   pintarCaja();
   pintarDestino();
   renderAll();
@@ -961,9 +968,17 @@ function pintarDestino(){
     $("camstateMsg").textContent = idleMsg();
   }
 }
+function refrescarDetector(){
+  if(running && motor === "nativo"){
+    crearDetector().then(function(d){ detector = d; }, function(){});
+  }
+}
+
 function armar(cual){
   destino = (destino === cual) ? "lista" : cual;
   lastCode = ""; lastAt = 0; confirmVal = ""; confirmVeces = 0;
+  refrescarDetector();
+  pintarBanda();
   pintarDestino();
   if(destino !== "lista"){
     if(cajaPlegada){ cajaPlegada = false; pintarCaja(); }
@@ -977,6 +992,15 @@ function llenarCampo(code, formato){
 
   // Al armar el segundo campo la cámara suele seguir viendo el código anterior:
   // si es el mismo que ya está en el otro campo, se rechaza y el campo sigue armado.
+  // estos dos campos solo aceptan código de barras
+  if(esQr(formato)){
+    beep(false);
+    toast("El ID Caja y el Cód. SAP se leen de un código de barras, no de un QR.", true);
+    $("camstateMsg").textContent = "Eso es un QR: apunta al código de barras.";
+    msgHoldUntil = perfNow() + 2500;
+    return;
+  }
+
   var otro = destino === "idcaja" ? (c.codSap || "") : (c.idCaja || "");
   if(otro && clave(code) === clave(otro)){
     beep(false);
@@ -997,6 +1021,8 @@ function llenarCampo(code, formato){
   $("camstateMsg").textContent = fmtNombre(formato) + " → " + (destino === "idcaja" ? "ID Caja" : "Cód. SAP") + ": " + code;
   msgHoldUntil = perfNow() + 2200;
   destino = "lista";
+  refrescarDetector();
+  pintarBanda();
   pintarDestino();
   pintarCaja();
   avisarIdRepetido(c);
@@ -1531,7 +1557,7 @@ var lienzo = null, lienzoCtx = null;
 var banda = { y: 0.5, h: 0.20 };
 var visibles = [], confirmVal = "", confirmVeces = 0, confirmAt = 0;
 
-function bandaActiva(){ return modo !== "qr" && $("optBanda").checked; }
+function bandaActiva(){ return (destino !== "lista" || modo !== "qr") && $("optBanda").checked; }
 
 function pintarBanda(){
   var el = $("band"), cam = $("cam");
@@ -1580,8 +1606,8 @@ function agregarVisibles(){
 
 function perfNow(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
 function idleMsg(){
-  if(destino === "idcaja") return "Apunta al código del ID de la caja…";
-  if(destino === "codsap") return "Apunta al código SAP…";
+  if(destino === "idcaja") return "Apunta al código de barras del ID de la caja…";
+  if(destino === "codsap") return "Apunta al código de barras del SAP…";
   return modo === "qr" ? "Apunta al código QR…" : "Apunta al código de barras…";
 }
 
