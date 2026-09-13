@@ -215,9 +215,22 @@ button,input,textarea,select{font:inherit;color:inherit}
 .stat b{display:block;font-family:var(--fm);font-weight:600;font-size:23px;line-height:1.1;font-variant-numeric:tabular-nums}
 .stat span{font-family:var(--fd);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .stat.qr b{color:var(--qr)} .stat.barras b{color:var(--barras)}
-.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-table{border-collapse:collapse;width:100%;font-size:13px}
-th{font-family:var(--fd);font-weight:700;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tablewrap{overflow:auto;max-height:min(52vh,420px);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.tablewrap::-webkit-scrollbar{width:11px;height:11px}
+.tablewrap::-webkit-scrollbar-track{background:var(--surface-2);border-radius:8px}
+.tablewrap::-webkit-scrollbar-thumb{background:var(--muted);border-radius:8px;border:3px solid var(--surface-2)}
+.tablewrap::-webkit-scrollbar-thumb:hover{background:var(--ink)}
+.codes.mini{scrollbar-width:thin;scrollbar-color:var(--muted) transparent;overscroll-behavior:contain}
+.codes.mini::-webkit-scrollbar{width:9px}
+.codes.mini::-webkit-scrollbar-track{background:var(--surface-2);border-radius:8px}
+.codes.mini::-webkit-scrollbar-thumb{background:var(--muted);border-radius:8px;border:2px solid var(--surface-2)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+th{font-family:var(--fd);font-weight:700;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);white-space:nowrap;
+  position:sticky;top:0;z-index:2;background:var(--surface-2)}
+tbody tr:nth-child(even) td{background:var(--surface-2)}
+.previnfo{display:flex;align-items:baseline;gap:8px;margin:0 0 7px}
+.previnfo span{margin-left:auto;font-size:12px;color:var(--muted);font-family:var(--fb);letter-spacing:0;text-transform:none;font-weight:400}
 td{padding:9px 12px;border-bottom:1px solid var(--line);font-family:var(--fm);white-space:nowrap}
 tr:last-child td{border-bottom:0}
 td.txt{font-family:var(--fb);color:var(--muted)}
@@ -378,7 +391,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     </div>
 
     <div>
-      <p class="cap">Vista previa</p>
+      <p class="cap previnfo">Vista previa<span id="prevInfo"></span></p>
       <div class="tablewrap">
         <table>
           <thead><tr><th>#</th><th>Código</th><th>Tipo</th><th>Etiqueta</th><th>Fecha</th></tr></thead>
@@ -761,14 +774,19 @@ function renderStats(){
 
   if(!todos.length){
     $("prev").innerHTML = '<tr><td class="txt" colspan="5">Aún no hay códigos para exportar.</td></tr>';
+    $("prevInfo").textContent = "";
     return;
   }
-  $("prev").innerHTML = todos.slice(0, 8).map(function(r, i){
+  var TOPE = 1000;
+  var muestra = todos.slice(0, TOPE);
+  $("prevInfo").textContent = todos.length === 1 ? "1 fila" : todos.length + " filas · desliza para ver todas";
+  $("prev").innerHTML = muestra.map(function(r, i){
     return '<tr><td class="txt">' + (i+1) + '</td><td>' + esc(r.codigo) + '</td>' +
            '<td class="txt">' + (r.tipo === "qr" ? "QR" : "Barras") + '</td>' +
            '<td class="txt">' + esc(r.etiqueta || "") + '</td>' +
            '<td class="txt">' + fechaCorta(r.createdAt) + '</td></tr>';
-  }).join("") + (todos.length > 8 ? '<tr><td class="txt" colspan="5">y ' + (todos.length - 8) + ' más…</td></tr>' : "");
+  }).join("") + (todos.length > TOPE
+    ? '<tr><td class="txt" colspan="5">y ' + (todos.length - TOPE) + ' filas más (todas salen en el Excel)</td></tr>' : "");
 }
 
 function renderAll(){ renderMini(); renderList(); renderStats(); }
