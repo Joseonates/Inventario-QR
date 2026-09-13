@@ -428,6 +428,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     <div class="opts">
       <label><input type="checkbox" id="optSound" checked> Sonido y vibración</label>
       <label><input type="checkbox" id="optSplit" checked> Separar los códigos internos del QR</label>
+      <label><input type="checkbox" id="optGuion" checked> El QR separa sus códigos con guion (-)</label>
       <label><input type="checkbox" id="optBanda" checked> Franja de lectura en códigos de barras</label>
       <label><input type="checkbox" id="optCompat"> Modo compatibilidad</label>
     </div>
@@ -653,7 +654,7 @@ function optRead(){ try{ return JSON.parse(localStorage.getItem(LS_OPT) || "{}")
 function optWrite(){
   try{
     localStorage.setItem(LS_OPT, JSON.stringify({
-      sound: $("optSound").checked, split: $("optSplit").checked,
+      sound: $("optSound").checked, split: $("optSplit").checked, guion: $("optGuion").checked,
       compat: $("optCompat").checked, banda: $("optBanda").checked,
       bandaY: banda.y, modo: modo, caja: cajaId, plegada: cajaPlegada
     }));
@@ -821,7 +822,10 @@ function trocear(texto){
   var unico = [{ etiqueta:"", valor: limpioUno(t) }];
   if(!$("optSplit").checked || modo !== "qr") return unico;
 
-  var partes = t.split(/[\r\n;|\t]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+  // El guion también separa cuando la opción está activa. Solo aplica al QR:
+  // un código de barras con guiones dentro nunca se parte.
+  var sep = $("optGuion").checked ? /[\r\n;|\t–—-]+/ : /[\r\n;|\t]+/;
+  var partes = t.split(sep).map(function(s){ return s.trim(); }).filter(Boolean);
   if(partes.length < 2) partes = [t];
   var out = [];
   partes.forEach(function(p){
@@ -2278,7 +2282,7 @@ function wire(){
   $("scrim").addEventListener("click", function(e){ if(e.target === $("scrim")) closeSheet(); });
   document.addEventListener("keydown", function(e){ if(e.key === "Escape" && !$("scrim").hidden) closeSheet(); });
 
-  ["optSound","optSplit","optCompat","optBanda"].forEach(function(id){
+  ["optSound","optSplit","optGuion","optCompat","optBanda"].forEach(function(id){
     $(id).addEventListener("change", optWrite);
   });
   $("optBanda").addEventListener("change", function(){
@@ -2294,6 +2298,7 @@ function boot(){
   var o = optRead();
   if(typeof o.sound === "boolean") $("optSound").checked = o.sound;
   if(typeof o.split === "boolean") $("optSplit").checked = o.split;
+  if(typeof o.guion === "boolean") $("optGuion").checked = o.guion;
   if(typeof o.compat === "boolean") $("optCompat").checked = o.compat;
   if(typeof o.banda === "boolean") $("optBanda").checked = o.banda;
   if(typeof o.bandaY === "number" && o.bandaY > 0.05 && o.bandaY < 0.95) banda.y = o.bandaY;
