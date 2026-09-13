@@ -223,13 +223,20 @@ button,input,textarea,select{font:inherit;color:inherit}
 .stat b{display:block;font-family:var(--fm);font-weight:600;font-size:23px;line-height:1.1;font-variant-numeric:tabular-nums}
 .stat span{font-family:var(--fd);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .stat.qr b{color:var(--qr)} .stat.barras b{color:var(--barras)}
-.tablewrap{overflow:auto;max-height:min(52vh,420px);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
-  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+/* La tabla crece con la página: nada de scroll dentro de scroll, que en el
+   celular se traba y esconde las últimas filas. Colapsada solo recorta. */
+.prevbox{position:relative}
+.tablewrap{overflow-x:auto;overflow-y:hidden;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.tablewrap.colapsada{max-height:320px}
 .tablewrap::-webkit-scrollbar{width:11px;height:11px}
 .tablewrap::-webkit-scrollbar-track{background:var(--surface-2);border-radius:8px}
 .tablewrap::-webkit-scrollbar-thumb{background:var(--muted);border-radius:8px;border:3px solid var(--surface-2)}
 .tablewrap::-webkit-scrollbar-thumb:hover{background:var(--ink)}
-.codes.mini{scrollbar-width:thin;scrollbar-color:var(--muted) transparent;overscroll-behavior:contain}
+.fade{position:absolute;left:1px;right:1px;bottom:1px;height:64px;pointer-events:none;border-radius:0 0 var(--radius) var(--radius);
+  background:linear-gradient(transparent,var(--surface))}
+.prevmas{width:100%;margin-top:9px;justify-content:center}
+.codes.mini{scrollbar-width:thin;scrollbar-color:var(--muted) transparent;padding-bottom:4px}
 .codes.mini::-webkit-scrollbar{width:9px}
 .codes.mini::-webkit-scrollbar-track{background:var(--surface-2);border-radius:8px}
 .codes.mini::-webkit-scrollbar-thumb{background:var(--muted);border-radius:8px;border:2px solid var(--surface-2)}
@@ -412,12 +419,16 @@ td.txt{font-family:var(--fb);color:var(--muted)}
 
     <div>
       <p class="cap previnfo">Vista previa<span id="prevInfo"></span></p>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>#</th><th>Código</th><th>Tipo</th><th>Etiqueta</th><th>Fecha</th></tr></thead>
-          <tbody id="prev"></tbody>
-        </table>
+      <div class="prevbox">
+        <div class="tablewrap colapsada" id="prevWrap">
+          <table>
+            <thead><tr><th>#</th><th>Código</th><th>Tipo</th><th>Etiqueta</th><th>Fecha</th></tr></thead>
+            <tbody id="prev"></tbody>
+          </table>
+        </div>
+        <div class="fade" id="prevFade" hidden></div>
       </div>
+      <button class="btn small ghost prevmas" id="btnPrevMas" hidden></button>
     </div>
 
     <div class="card">
@@ -876,11 +887,14 @@ function renderStats(){
   if(!todos.length){
     $("prev").innerHTML = '<tr><td class="txt" colspan="5">Aún no hay códigos para exportar.</td></tr>';
     $("prevInfo").textContent = "";
+    $("btnPrevMas").hidden = true;
+    $("prevFade").hidden = true;
+    $("prevWrap").classList.remove("colapsada");
     return;
   }
   var TOPE = 1000;
   var muestra = todos.slice(0, TOPE);
-  $("prevInfo").textContent = todos.length === 1 ? "1 fila" : todos.length + " filas · desliza para ver todas";
+  $("prevInfo").textContent = todos.length === 1 ? "1 fila" : todos.length + " filas";
   $("prev").innerHTML = muestra.map(function(r, i){
     return '<tr><td class="txt">' + (i+1) + '</td><td>' + esc(r.codigo) + '</td>' +
            '<td class="txt">' + (r.tipo === "qr" ? "QR" : "Barras") + '</td>' +
@@ -888,6 +902,23 @@ function renderStats(){
            '<td class="txt">' + fechaCorta(r.createdAt) + '</td></tr>';
   }).join("") + (todos.length > TOPE
     ? '<tr><td class="txt" colspan="5">y ' + (todos.length - TOPE) + ' filas más (todas salen en el Excel)</td></tr>' : "");
+
+  ajustarPreview();
+}
+
+var prevAbierta = false;
+
+/* La tabla nunca desplaza por dentro: o está recortada, o se muestra
+   completa y quien desplaza es la página. */
+function ajustarPreview(){
+  var wrap = $("prevWrap"), btn = $("btnPrevMas");
+  wrap.classList.toggle("colapsada", !prevAbierta);
+  if(!wrap.clientHeight) return;   // la pestaña está oculta: se mide al abrirla
+  var recortada = !prevAbierta && wrap.scrollHeight > wrap.clientHeight + 4;
+  $("prevFade").hidden = !recortada;
+  if(!recortada && !prevAbierta){ btn.hidden = true; return; }
+  btn.hidden = false;
+  btn.textContent = prevAbierta ? "Ver menos" : "Ver las " + vivos().length + " filas";
 }
 
 function renderAll(){ renderMini(); renderList(); renderStats(); }
@@ -1809,6 +1840,8 @@ function switchTab(name){
   document.querySelectorAll(".tabs button").forEach(function(b){
     b.setAttribute("aria-selected", b.getAttribute("data-tab") === name ? "true" : "false");
   });
+  // la tabla solo se puede medir cuando su pestaña está a la vista
+  if(name === "exp") ajustarPreview();
 }
 
 function agregarManual(){
@@ -1889,6 +1922,11 @@ function wire(){
   $("btnXlsx").onclick = function(){ deliver("codigos-" + stamp() + ".xlsx", xlsxBlob()); };
   $("btnCsv").onclick = function(){ deliver("codigos-" + stamp() + ".csv", csvText()); };
   $("btnCopy").onclick = copiar;
+  $("btnPrevMas").onclick = function(){
+    prevAbierta = !prevAbierta;
+    ajustarPreview();
+    if(!prevAbierta) $("prevWrap").scrollIntoView({ block: "nearest" });
+  };
   $("btnWipe").onclick = function(){
     if(!vivos().length){ toast("La lista ya está vacía."); return; }
     confirmSheet("Borrar toda la lista",
