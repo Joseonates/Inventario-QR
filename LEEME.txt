@@ -1,0 +1,60 @@
+ESCÁNER SERIAL Y MAC — aplicación web instalable (PWA)
+=======================================================
+
+Qué hay en esta carpeta
+-----------------------
+index.html                 La aplicación completa.
+manifest.webmanifest       Nombre, ícono y modo de pantalla completa.
+sw.js                      Service worker: hace que funcione sin internet.
+icon-192.png               Ícono de la app.
+icon-512.png               Ícono grande.
+icon-maskable-512.png      Ícono adaptable de Android.
+apple-touch-icon.png       Ícono para iPhone y iPad.
+favicon-32.png             Ícono de la pestaña del navegador.
+
+Todos los archivos deben quedar juntos, en la misma carpeta.
+
+
+Cómo publicarla (elige una opción)
+----------------------------------
+1) NETLIFY DROP — lo más rápido, gratis, sin cuenta obligatoria.
+   - Entra a https://app.netlify.com/drop
+   - Arrastra esta carpeta completa (o el archivo .zip) a la página.
+   - Te entrega una dirección https://algo.netlify.app
+   - Abre esa dirección en el celular.
+
+2) GITHUB PAGES — gratis, con tu propia cuenta.
+   - Crea un repositorio y sube estos archivos a la raíz.
+   - Settings > Pages > Branch: main > carpeta / (root) > Save.
+   - Espera un minuto y abre la dirección que te muestra.
+
+3) TU PROPIO SERVIDOR
+   - Copia los archivos a una carpeta servida por HTTPS.
+   - IMPORTANTE: la cámara y el modo sin conexión solo funcionan en HTTPS
+     (o en http://localhost durante pruebas).
+
+
+Cómo instalarla en el celular
+-----------------------------
+ANDROID (Chrome):
+   Abre la dirección, toca el botón "Instalar" que aparece arriba,
+   o el menú ⋮ > "Instalar aplicación".
+
+IPHONE / IPAD (Safari):
+   Abre la dirección, toca el botón Compartir y elige
+   "Agregar a inicio".
+
+Después de instalarla queda con su ícono propio, abre a pantalla completa
+y funciona sin señal.
+
+
+Notas
+-----
+- Los equipos escaneados se guardan en el propio celular. Siguen ahí
+  aunque cierres la app o te quedes sin internet.
+- Exporta a Excel cada cierto tiempo: es tu respaldo.
+- Si desinstalas la app o borras los datos del navegador, se borra
+  el inventario guardado. Exporta antes.
+- Para publicar una versión nueva: reemplaza los archivos y cambia
+  la línea  var VERSION = "v1";  de sw.js por "v2", "v3", etc.
+  Así los celulares descargan la versión nueva en lugar de la guardada.
