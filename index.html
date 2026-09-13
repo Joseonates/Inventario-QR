@@ -525,10 +525,12 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     <div class="card">
       <h3>Datos guardados</h3>
       <p class="hint" id="syncMsg">Revisando almacenamiento…</p>
-      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
         <button class="btn danger" id="btnWipe">Vaciar esta caja</button>
+        <button class="btn danger" id="btnLimpiar">Limpiar todo en esta caja</button>
         <button class="btn danger" id="btnDelCaja">Eliminar esta caja</button>
       </div>
+      <p class="hint" style="margin-top:10px">Vaciar borra solo los códigos. Limpiar todo borra además el No de Caja, el ID y el Cód. SAP, y deja la caja en blanco para volver a usarla.</p>
     </div>
   </section>
 </div>
@@ -956,6 +958,27 @@ function borrarCaja(){
     }, true);
 }
 
+function limpiarCaja(){
+  var c = cajaActual();
+  if(!c) return;
+  var n = vivos().length;
+  var conDatos = !!(c.numero || c.idCaja || c.codSap);
+  if(!n && !conDatos){ toast("Esta caja ya está en blanco."); return; }
+  confirmSheet("Limpiar todo en " + nombreCaja(c),
+    "Se borran sus " + n + (n === 1 ? " código" : " códigos") +
+    " y también el No de Caja, el ID Caja y el Cód. SAP. La caja queda en blanco para volver a usarla.",
+    "Limpiar todo", function(){
+      vivos().forEach(function(r){ r.deleted = true; r.updatedAt = nowIso(); pushOne(r); });
+      c.numero = ""; c.idCaja = ""; c.codSap = ""; c.updatedAt = nowIso();
+      ultimoId = null; repeId = null; modoSel = false; seleccion = {};
+      destino = "lista";
+      lsWrite(); cajasWrite(); pushCaja(c);
+      pintarDestino();
+      renderAll();
+      toast("Caja en blanco.");
+    }, true);
+}
+
 /* ---------- a dónde va lo que se escanea ---------- */
 function pintarDestino(){
   document.querySelectorAll(".scanbtn").forEach(function(b){
@@ -977,6 +1000,8 @@ function refrescarDetector(){
 function armar(cual){
   destino = (destino === cual) ? "lista" : cual;
   lastCode = ""; lastAt = 0; confirmVal = ""; confirmVeces = 0;
+  // estos campos son de código de barras: el selector queda fijado en Barras
+  if(destino !== "lista" && modo !== "barras") setModo("barras");
   refrescarDetector();
   pintarBanda();
   pintarDestino();
@@ -2330,6 +2355,7 @@ function wire(){
     if(!prevAbierta) $("prevWrap").scrollIntoView({ block: "nearest" });
   };
   $("btnDelCaja").onclick = borrarCaja;
+  $("btnLimpiar").onclick = limpiarCaja;
   $("btnWipe").onclick = function(){
     if(!vivos().length){ toast("Esta caja ya está vacía."); return; }
     confirmSheet("Vaciar " + nombreCaja(cajaActual()),
