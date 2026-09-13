@@ -341,7 +341,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
     <div class="cajaform" id="cajaForm">
       <div class="cf" id="cfNum">
         <label for="cNum">No de Caja</label>
-        <input id="cNum" autocomplete="off" placeholder="Escribe el número">
+        <input id="cNum" autocomplete="off" inputmode="numeric" placeholder="Desde 1 en adelante">
       </div>
       <div class="cf" id="cfId">
         <label for="cId">ID Caja</label>
@@ -362,7 +362,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
         </div>
       </div>
     </div>
-    <p class="hint" id="cajaNota" style="margin-top:9px">El ID Caja no se repite entre cajas. El Cód. SAP sí puede ser el mismo en varias.</p>
+    <p class="hint" id="cajaNota" style="margin-top:9px">El No de Caja empieza en 1 y no se repite. El ID Caja tampoco se repite entre cajas. El Cód. SAP sí puede ser el mismo en varias.</p>
     <p class="cajaresumen" id="cajaResumen" hidden></p>
   </section>
 
@@ -911,6 +911,25 @@ function guardarCaja(campoEditado){
     else { sap = ""; $("cSap").value = ""; }
   }
 
+  // El No de Caja empieza en 1 y no se repite
+  var num = $("cNum").value.trim();
+  if(num){
+    if(/^[+-]?\d+$/.test(num) && parseInt(num, 10) < 1){
+      beep(false);
+      toast("El No de Caja empieza en 1.", true);
+      num = ""; $("cNum").value = "";
+    } else {
+      var choqueNum = cajasVivas().filter(function(x){
+        return x.id !== c.id && x.numero && clave(x.numero) === clave(num);
+      });
+      if(choqueNum.length){
+        beep(false);
+        toast("Ya existe una caja con el No " + num + ". El No de Caja no se puede repetir.", true);
+        num = ""; $("cNum").value = "";
+      }
+    }
+  }
+
   if(id){
     var choque = idDeOtraCaja(id, c);
     if(choque){
@@ -920,7 +939,7 @@ function guardarCaja(campoEditado){
     }
   }
 
-  c.numero = $("cNum").value.trim();
+  c.numero = num;
   c.idCaja = id;
   c.codSap = sap;
   c.updatedAt = nowIso();
@@ -954,11 +973,16 @@ function cambiarCaja(id){
   renderAll();
 }
 
+function siguienteNumero(){
+  var usados = {};
+  cajasVivas().forEach(function(c){ if(c.numero) usados[clave(c.numero)] = true; });
+  var n = 1;                       // la numeración empieza en 1
+  while(usados[String(n)]) n++;
+  return String(n);
+}
+
 function crearCaja(){
-  var usados = cajasVivas().map(function(c){ return parseInt(c.numero, 10); })
-                 .filter(function(n){ return !isNaN(n); });
-  var siguiente = usados.length ? Math.max.apply(null, usados) + 1 : cajasVivas().length + 1;
-  var c = nuevaCaja(String(siguiente));
+  var c = nuevaCaja(siguienteNumero());
   cambiarCaja(c.id);
   cajaPlegada = false;
   pintarCaja();
