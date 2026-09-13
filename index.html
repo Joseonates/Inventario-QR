@@ -362,6 +362,7 @@ td.txt{font-family:var(--fb);color:var(--muted)}
         </div>
       </div>
     </div>
+    <p class="hint" id="cajaNota" style="margin-top:9px">El ID Caja no se repite entre cajas. El Cód. SAP sí puede ser el mismo en varias.</p>
     <p class="cajaresumen" id="cajaResumen" hidden></p>
   </section>
 
@@ -885,6 +886,7 @@ function pintarCaja(){
   });
 
   $("cajaForm").hidden = cajaPlegada;
+  $("cajaNota").hidden = cajaPlegada;
   $("btnPlegarCaja").setAttribute("aria-expanded", cajaPlegada ? "false" : "true");
   $("btnPlegarCaja").style.transform = cajaPlegada ? "rotate(-90deg)" : "";
 
@@ -909,6 +911,15 @@ function guardarCaja(campoEditado){
     else { sap = ""; $("cSap").value = ""; }
   }
 
+  if(id){
+    var choque = idDeOtraCaja(id, c);
+    if(choque){
+      beep(false);
+      toast("Ese ID ya es de " + nombreCaja(choque) + ". El ID Caja no se puede repetir.", true);
+      id = ""; $("cId").value = "";
+    }
+  }
+
   c.numero = $("cNum").value.trim();
   c.idCaja = id;
   c.codSap = sap;
@@ -916,16 +927,17 @@ function guardarCaja(campoEditado){
   cajasWrite();
   pushCaja(c);
   pintarCaja();
-  avisarIdRepetido(c);
 }
 
-/* Aviso (no bloquea) si otra caja ya tiene ese mismo ID */
-function avisarIdRepetido(c){
-  if(!c || !c.idCaja) return;
+/* El ID Caja identifica una caja: no puede repetirse en otra.
+   El Cód. SAP sí puede ser el mismo en muchas cajas. */
+function idDeOtraCaja(code, c){
+  var k = clave(code);
+  if(!k) return null;
   var otra = cajasVivas().filter(function(x){
-    return x.id !== c.id && x.idCaja && clave(x.idCaja) === clave(c.idCaja);
+    return x.id !== c.id && x.idCaja && clave(x.idCaja) === k;
   });
-  if(otra.length) toast("Ojo: ese ID también está en " + nombreCaja(otra[0]) + ".", true);
+  return otra.length ? otra[0] : null;
 }
 
 function cambiarCaja(id){
@@ -982,7 +994,7 @@ function limpiarCaja(){
   if(!n && !conDatos){ toast("Esta caja ya está en blanco."); return; }
   confirmSheet("Limpiar todo en " + nombreCaja(c),
     "Se borran sus " + n + (n === 1 ? " código" : " códigos") +
-    " y también el No de Caja, el ID Caja y el Cód. SAP. La caja queda en blanco para volver a usarla.",
+    " y se vacían las casillas de No de Caja, ID Caja y Cód. SAP. La caja queda en blanco para volver a usarla.",
     "Limpiar todo", function(){
       vivos().forEach(function(r){ r.deleted = true; r.updatedAt = nowIso(); pushOne(r); });
       c.numero = ""; c.idCaja = ""; c.codSap = ""; c.updatedAt = nowIso();
@@ -991,7 +1003,7 @@ function limpiarCaja(){
       lsWrite(); cajasWrite(); pushCaja(c);
       pintarDestino();
       renderAll();
-      toast("Caja en blanco.");
+      toast("Caja en blanco: sin códigos, sin ID Caja y sin Cód. SAP.");
     }, true);
 }
 
@@ -1074,6 +1086,17 @@ function llenarCampo(code, formato){
     return;
   }
 
+  if(destino === "idcaja"){
+    var choque = idDeOtraCaja(code, c);
+    if(choque){
+      beep(false);
+      toast("Ese ID ya es de " + nombreCaja(choque) + ". El ID Caja no se puede repetir.", true);
+      $("camstateMsg").textContent = "ID repetido: ya es de " + nombreCaja(choque) + ".";
+      msgHoldUntil = perfNow() + 2500;
+      return;
+    }
+  }
+
   var otro = destino === "idcaja" ? (c.codSap || "") : (c.idCaja || "");
   if(otro && clave(code) === clave(otro)){
     beep(false);
@@ -1098,7 +1121,6 @@ function llenarCampo(code, formato){
   pintarBanda();
   pintarDestino();
   pintarCaja();
-  avisarIdRepetido(c);
 }
 
 function agregar(texto, formato, origenManual, callado){
